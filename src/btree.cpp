@@ -22,65 +22,63 @@
 namespace badgerdb
 {
 
-// -----------------------------------------------------------------------------
-// BTreeIndex::BTreeIndex -- Constructor
-// -----------------------------------------------------------------------------
+		// -----------------------------------------------------------------------------
+		// BTreeIndex::BTreeIndex -- Constructor
+		// -----------------------------------------------------------------------------
 
-BTreeIndex::BTreeIndex(const std::string & relationName,
-		std::string & outIndexName,
-		BufMgr *bufMgrIn,
-		const int attrByteOffset,
-		const Datatype attrType)
-{
-
-}
+		BTreeIndex::BTreeIndex(const std::string & relationName,
+				std::string & outIndexName,
+				BufMgr *bufMgrIn,
+				const int attrByteOffset,
+				const Datatype attrType) {
+		}
 
 
-// -----------------------------------------------------------------------------
-// BTreeIndex::~BTreeIndex -- destructor
-// -----------------------------------------------------------------------------
+		// -----------------------------------------------------------------------------
+		// BTreeIndex::~BTreeIndex -- destructor
+		// -----------------------------------------------------------------------------
 
-BTreeIndex::~BTreeIndex()
-{
-}
+		// TODO: sreejita
+		BTreeIndex::~BTreeIndex() {
+		}
 
-// -----------------------------------------------------------------------------
-// BTreeIndex::insertEntry
-// -----------------------------------------------------------------------------
+		// -----------------------------------------------------------------------------
+		// BTreeIndex::insertEntry
+		// -----------------------------------------------------------------------------
 
-void BTreeIndex::insertEntry(const void *key, const RecordId rid) 
-{
+		// TODO: sahib, haylee
+		void BTreeIndex::insertEntry(const void *key, const RecordId rid) {
 
-}
+		}
 
-// -----------------------------------------------------------------------------
-// BTreeIndex::startScan
-// -----------------------------------------------------------------------------
+		// -----------------------------------------------------------------------------
+		// BTreeIndex::startScan
+		// -----------------------------------------------------------------------------
 
-void BTreeIndex::startScan(const void* lowValParm,
-				   const Operator lowOpParm,
-				   const void* highValParm,
-				   const Operator highOpParm)
-{
+		// TODO: sreejita
+		void BTreeIndex::startScan(const void* lowValParm,
+				const Operator lowOpParm,
+				const void* highValParm,
+				const Operator highOpParm) {
 
-}
+		}
 
-// -----------------------------------------------------------------------------
-// BTreeIndex::scanNext
-// -----------------------------------------------------------------------------
+		// -----------------------------------------------------------------------------
+		// BTreeIndex::scanNext
+		// -----------------------------------------------------------------------------
 
-void BTreeIndex::scanNext(RecordId& outRid) 
-{
+		// TODO: sahib
+		void BTreeIndex::scanNext(RecordId& outRid) {
 
-}
+		}
 
-// -----------------------------------------------------------------------------
-// BTreeIndex::endScan
-// -----------------------------------------------------------------------------
-//
-void BTreeIndex::endScan() 
-{
+		// -----------------------------------------------------------------------------
+		// BTreeIndex::endScan
+		// -----------------------------------------------------------------------------
+		//
+		// TODO: sreejita
+		void BTreeIndex::endScan() {
 
-}
+		}
 
 }

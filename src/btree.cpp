@@ -15,6 +15,7 @@
 #include "exceptions/index_scan_completed_exception.h"
 #include "exceptions/file_not_found_exception.h"
 #include "exceptions/end_of_file_exception.h"
+#include "exceptions/file_exists_exception.h"
 
 
 //#define DEBUG
@@ -46,7 +47,8 @@ namespace badgerdb
 			scanExecuting = false;
 
 			IndexMetaInfo* metadata;
-			Page* headerPage, rootPage;
+			Page* headerPage;
+			Page* rootPage;
 
 			try {
 				// Create file, check if it exists
@@ -61,17 +63,17 @@ namespace badgerdb
 				metadata = (IndexMetaInfo*) headerPage;
 				strcpy(metadata->relationName, relationName.c_str());
 				metadata->attrByteOffset = attrByteOffset;
-				metadata->attributeType = attrType;
+				metadata->attrType = attrType;
 				metadata->rootPageNo = rootPageNum;
 
 				// Set up the root of the btree
 				NonLeafNodeInt* root = (NonLeafNodeInt*) rootPage;
 				root->level = 1;
 				for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
-					root->keyArray[i] = 0;
-					root->pageNoArray[i] = 0;
+					root->keyArray[i] = -1;
+					root->pageNoArray[i] = Page::INVALID_NUMBER;
 				}
-				root->pageNoArray[INTARRAYNONLEAFSIZE] = 0;
+				root->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
 
 				// Scan relation and insert entries for all tuples into index
 				try {
@@ -95,9 +97,9 @@ namespace badgerdb
 				// Check that values in (relationName, attribute byte, attribute type etc.) match parameters
 				if (strcmp(metadata->relationName, relationName.c_str()) != 0
 					|| metadata->attrByteOffset != attrByteOffset
-					|| metadata->attributeType != attrType) {
+					|| metadata->attrType != attrType) {
 						// Metadata does not match the parameters
-						throw BadIndexInfoException();
+						throw BadIndexInfoException("Error: Existing index metadata does not match parameters passed.");
 				}
 				// Metatdata matches
 			}

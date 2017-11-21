@@ -16,6 +16,7 @@
 #include "exceptions/file_not_found_exception.h"
 #include "exceptions/end_of_file_exception.h"
 #include "exceptions/file_exists_exception.h"
+#include "exceptions/page_not_pinned_exception.h"
 
 
 //#define DEBUG
@@ -86,6 +87,18 @@ namespace badgerdb
 				} catch (EndOfFileException e) {
 					// Do nothing. Finished scanning file.
 				}
+
+				// Unpin header page and root page as they are no longer in use
+				try {
+					bufMgr->unPinPage(file, headerPageNum, true);
+				} catch (PageNotPinnedException e) {
+					// Do nothing.
+				}
+				try {
+					bufMgr->unPinPage(file, rootPageNum, true);
+				} catch (PageNotPinnedException e) {
+					// Do nothing.
+				}
 			} catch (FileExistsException e) {  // File exists
 				// Open the file
 				file = new BlobFile(outIndexName, false);
@@ -99,9 +112,21 @@ namespace badgerdb
 					|| metadata->attrByteOffset != attrByteOffset
 					|| metadata->attrType != attrType) {
 						// Metadata does not match the parameters
+						// Unpin header page before exiting
+						try {
+							bufMgr->unPinPage(file, headerPageNum, false);
+						} catch (PageNotPinnedException e) {
+							// Do nothing.
+						}
 						throw BadIndexInfoException("Error: Existing index metadata does not match parameters passed.");
 				}
 				// Metatdata matches
+				// Unpin header page
+				try {
+					bufMgr->unPinPage(file, headerPageNum, false);
+				} catch (PageNotPinnedException e) {
+					// Do nothing.
+				}
 			}
 		}
 

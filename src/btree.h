@@ -291,6 +291,16 @@ class BTreeIndex {
    */
 	Operator	highOp;
 
+  /**
+   * Splits the node and returns pointer to a page containing the new node
+   */
+    Page* splitLeafNode(LeafNodeInt *, int&, RecordId);
+
+  /**
+    * Splits the node and returns pointer to a page containing the new node
+    */
+    Page* splitNonLeafNode(NonLeafNodeInt *, int&, PageId);
+
 	
  public:
 

@@ -134,9 +134,22 @@ namespace badgerdb
     // -----------------------------------------------------------------------------
     // BTreeIndex::~BTreeIndex -- destructor
     // -----------------------------------------------------------------------------
-
-    // TODO: sreejita
     BTreeIndex::~BTreeIndex() {
+			// Clean up state variables
+			scanExecuting = false;
+
+			// Unpin any pinned pages
+			try {
+				bufMgr->unPinPage(file, currentPageNum, false);
+			} catch (PageNotPinnedException e) {
+				// Do nothing.
+			}
+
+			// Flush index file
+			bufMgr->flushFile(file);
+
+			// Delete the index file (calls destructor of File)
+			delete file;
     }
 
     // -----------------------------------------------------------------------------
@@ -418,10 +431,6 @@ namespace badgerdb
     // -----------------------------------------------------------------------------
     // BTreeIndex::scanNext
     // -----------------------------------------------------------------------------
-
-    // -----------------------------------------------------------------------------
-    // BTreeIndex::scanNext
-    // -----------------------------------------------------------------------------
     void BTreeIndex::scanNext(RecordId& outRid) {
         // Check that scan has successfully started
         if (!scanExecuting) {
@@ -482,13 +491,25 @@ namespace badgerdb
         nextEntry++;
     }
 
-    // -----------------------------------------------------------------------------
-    // BTreeIndex::endScan
-    // -----------------------------------------------------------------------------
-    //
-    // TODO: sreejita
-    void BTreeIndex::endScan() {
+		// -----------------------------------------------------------------------------
+		// BTreeIndex::endScan
+		// -----------------------------------------------------------------------------
+		//
+		void BTreeIndex::endScan() {
+			// Make sure that a scan is successfully executing
+			if (!scanExecuting) {
+				throw ScanNotInitializedException();
+			}
 
-    }
+			// Terminate the current scan
+			scanExecuting = false;
+
+			// Unpin the pages that are currently pinned
+			try {
+				bufMgr->unPinPage(file, currentPageNum, false);
+			} catch (PageNotPinnedException e) {
+				// Do nothing.
+			}
+		}
 
 }

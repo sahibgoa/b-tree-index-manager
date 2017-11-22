@@ -34,7 +34,7 @@ enum Datatype
  * @brief Scan operations enumeration. Passed to BTreeIndex::startScan() method.
  */
 enum Operator
-{ 
+{
 	LT, 	/* Less Than */
 	LTE,	/* Less Than or Equal to */
 	GTE,	/* Greater Than or Equal to */
@@ -55,7 +55,7 @@ const  int INTARRAYLEAFSIZE = ( Page::SIZE - sizeof( PageId ) ) / ( sizeof( int 
 const  int INTARRAYNONLEAFSIZE = ( Page::SIZE - sizeof( int ) - sizeof( PageId ) ) / ( sizeof( int ) + sizeof( PageId ) );
 
 /**
- * @brief Structure to store a key-rid pair. It is used to pass the pair to functions that 
+ * @brief Structure to store a key-rid pair. It is used to pass the pair to functions that
  * add to or make changes to the leaf node pages of the tree. Is templated for the key member.
  */
 template <class T>
@@ -71,7 +71,7 @@ public:
 };
 
 /**
- * @brief Structure to store a key page pair which is used to pass the key and page to functions that make 
+ * @brief Structure to store a key page pair which is used to pass the key and page to functions that make
  * any modifications to the non leaf pages of the tree.
 */
 template <class T>
@@ -132,8 +132,8 @@ struct IndexMetaInfo{
 
 /*
 Each node is a page, so once we read the page in we just cast the pointer to the page to this struct and use it to access the parts
-These structures basically are the format in which the information is stored in the pages for the index file depending on what kind of 
-node they are. The level memeber of each non leaf structure seen below is set to 1 if the nodes 
+These structures basically are the format in which the information is stored in the pages for the index file depending on what kind of
+node they are. The level memeber of each non leaf structure seen below is set to 1 if the nodes
 at this level are just above the leaf nodes. Otherwise set to 0.
 */
 
@@ -214,7 +214,7 @@ class BTreeIndex {
 	Datatype	attributeType;
 
   /**
-   * Offset of attribute, over which index is built, inside records. 
+   * Offset of attribute, over which index is built, inside records.
    */
 	int 		attrByteOffset;
 
@@ -280,7 +280,7 @@ class BTreeIndex {
    * High STRING value for scan.
    */
 	std::string highValString;
-	
+
   /**
    * Low Operator. Can only be GT(>) or GTE(>=).
    */
@@ -291,21 +291,33 @@ class BTreeIndex {
    */
 	Operator	highOp;
 
+
   /**
-   * Splits the node and returns pointer to a page containing the new node
+   * Splits the leaf node and returns pointer to a page containing the new node.
+	 *
+	 * @param dataNode		Node where the new key is to be inserted.
+	 * @param intKey			Integer representation of the key being inserted.
+	 * @param rid					Record ID of a record whose entry is getting inserted into the index.
+	 * @return A pointer to the page containing the new node.
    */
-    Page* splitLeafNode(LeafNodeInt *, int&, RecordId);
+  Page* splitLeafNode(LeafNodeInt* dataNode, int& intKey, const RecordId rid);
+
 
   /**
-    * Splits the node and returns pointer to a page containing the new node
-    */
-    Page* splitNonLeafNode(NonLeafNodeInt *, int&, PageId);
+   * Splits the non-leaf node and returns pointer to a page containing the new node.
+	 *
+	 * @param node				The non-leaf node to be split.
+	 * @param intKey			Integer representation of the key being inserted.
+	 * @param pageId			PageId of the page where the new key was inserted.
+	 * @return A pointer to the page containing the new node.
+   */
+  Page* splitNonLeafNode(NonLeafNodeInt* node, int &intKey, const PageId pageId);
 
-	
+
  public:
 
   /**
-   * BTreeIndex Constructor. 
+   * BTreeIndex Constructor.
 	 * Check to see if the corresponding index file exists. If so, open the file.
 	 * If not, create it and insert entries for every tuple in the base relation using FileScan class.
    *
@@ -318,19 +330,19 @@ class BTreeIndex {
    */
 	BTreeIndex(const std::string & relationName, std::string & outIndexName,
 						BufMgr *bufMgrIn,	const int attrByteOffset,	const Datatype attrType);
-	
+
 
   /**
-   * BTreeIndex Destructor. 
+   * BTreeIndex Destructor.
 	 * End any initialized scan, flush index file, after unpinning any pinned pages, from the buffer manager
 	 * and delete file instance thereby closing the index file.
-	 * Destructor should not throw any exceptions. All exceptions should be caught in here itself. 
+	 * Destructor should not throw any exceptions. All exceptions should be caught in here itself.
 	 * */
 	~BTreeIndex();
 
 
   /**
-	 * Insert a new entry using the pair <value,rid>. 
+	 * Insert a new entry using the pair <value,rid>.
 	 * Start from root to recursively find out the leaf to insert the entry in. The insertion may cause splitting of leaf node.
 	 * This splitting will require addition of new leaf page number entry into the parent non-leaf, which may in-turn get split.
 	 * This may continue all the way upto the root causing the root to get split. If root gets split, metapage needs to be changed accordingly.
@@ -342,8 +354,8 @@ class BTreeIndex {
 
 
   /**
-	 * Begin a filtered scan of the index.  For instance, if the method is called 
-	 * using ("a",GT,"d",LTE) then we should seek all entries with a value 
+	 * Begin a filtered scan of the index.  For instance, if the method is called
+	 * using ("a",GT,"d",LTE) then we should seek all entries with a value
 	 * greater than "a" and less than or equal to "d".
 	 * If another scan is already executing, that needs to be ended here.
 	 * Set up all the variables for scan. Start from root to find out the leaf page that contains the first RecordID
@@ -352,7 +364,7 @@ class BTreeIndex {
    * @param lowOp		Low operator (GT/GTE)
    * @param highVal	High value of range, pointer to integer / double / char string
    * @param highOp	High operator (LT/LTE)
-   * @throws  BadOpcodesException If lowOp and highOp do not contain one of their their expected values 
+   * @throws  BadOpcodesException If lowOp and highOp do not contain one of their their expected values
    * @throws  BadScanrangeException If lowVal > highval
 	 * @throws  NoSuchKeyFoundException If there is no key in the B+ tree that satisfies the scan criteria.
 	**/
@@ -374,7 +386,7 @@ class BTreeIndex {
 	 * @throws ScanNotInitializedException If no scan has been initialized.
 	**/
 	void endScan();
-	
+
 };
 
 }

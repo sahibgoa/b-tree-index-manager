@@ -164,7 +164,7 @@ namespace badgerdb
             for (idx = 0;
                  idx < INTARRAYNONLEAFSIZE &&
                  currNode->keyArray[idx] != -1 &&
-                 currNode->keyArray[idx] < *((int*) intKey);
+                 currNode->keyArray[idx] < intKey;
                  idx++);
             // Read the next page that contains the next node 1 level deeper in
             // the b-tree
@@ -203,64 +203,149 @@ namespace badgerdb
                 newRid = oldRid;
             }
         } else {
-            // Split the node
 
-            // Create and allocate the page (and leaf node)
-            Page* page;
-            PageId pageId = Page::INVALID_NUMBER;
-            bufMgr->allocPage(file, pageId, page);
-            auto newLeafNode = (LeafNodeInt*) &page;
+            currPage = splitLeafNode(dataNode, intKey, rid);
 
-            // Initialize the node with default values
-            for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
-                newLeafNode->keyArray[i] = -1;
-                newLeafNode->ridArray[i] = {};
-            }
+            auto newLeafNode = (LeafNodeInt*) &currPage;
+            int midKey = newLeafNode->keyArray[0];
 
-            // Get the middle index value and create sorted key and rid array
-            int midIdx = (INTARRAYLEAFSIZE + 1) / 2, prevKey = -1, i, j;
-            int keyArr[INTARRAYLEAFSIZE+1];
-            RecordId ridArr[INTARRAYLEAFSIZE+1];
+            do {
+                // TODO: Recursively Add midIdx key to the parent nodes using stack 'path'
+                bufMgr->readPage(file, path.top(), currPage);
+                currNode = (NonLeafNodeInt*) &currPage;
+                splitNonLeafNode(currNode, midKey, currPage->page_number());
+                path.pop();
+            } while (currNode->keyArray[INTARRAYNONLEAFSIZE-1] != -1 && !path.empty());
+        }
+    }
 
-            // Create a sorted array of all keys with new key in its position
-            for (i = 0, j = 0; i < INTARRAYLEAFSIZE; i++) {
-                if (prevKey <= intKey && intKey < dataNode->keyArray[j]) {
-                    keyArr[i] = intKey;
-                    ridArr[i] = rid;
-                    continue;
-                }
-                prevKey = keyArr[i] = dataNode->keyArray[j];
-                ridArr[i] = dataNode->ridArray[j];
-                j++;
-            }
-            // Special case where the key is the last key in the sorted key list
-            if (i == j) {
+
+    Page* BTreeIndex::splitLeafNode(LeafNodeInt *dataNode, int intKey, RecordId rid) {
+        // Create and allocate the page (and leaf node)
+        Page* page;
+        PageId pageId = Page::INVALID_NUMBER;
+        bufMgr->allocPage(file, pageId, page);
+        auto newLeafNode = (LeafNodeInt*) &page;
+
+        // Initialize the node with default values
+        for (int i = 0; i < INTARRAYLEAFSIZE; i++) {
+            newLeafNode->keyArray[i] = -1;
+            newLeafNode->ridArray[i] = {};
+        }
+
+        // Get the middle index value and create sorted key and rid array
+        int midIdx = (INTARRAYLEAFSIZE + 1) / 2, prevKey = -1, i, j;
+        int keyArr[INTARRAYLEAFSIZE+1];
+        RecordId ridArr[INTARRAYLEAFSIZE+1];
+
+        // Create a sorted array of all keys with new key in its position
+        for (i = 0, j = 0; i < INTARRAYLEAFSIZE; i++) {
+            if (prevKey <= intKey && intKey < dataNode->keyArray[j]) {
                 keyArr[i] = intKey;
                 ridArr[i] = rid;
+                continue;
             }
-
-            // Update keys of dataNode (left split) to the first half of keys
-            for (i = 0; i < midIdx; ++i) {
-                dataNode->keyArray[i] = keyArr[i];
-                dataNode->ridArray[i] = ridArr[i];
-            }
-
-            // Update keys of newLeafNode (right split) with second half of keys
-            for (i = midIdx; i < INTARRAYLEAFSIZE+1; ++i) {
-                newLeafNode->keyArray[i-midIdx-1] = keyArr[i];
-                newLeafNode->ridArray[i-midIdx-1] = ridArr[i];
-                // Invalidate corresponding indices in dataNode as second half
-                // that array is now empty
-                dataNode->keyArray[i-1] = -1;
-            }
-
-            // Update page IDs of right siblings
-            newLeafNode->rightSibPageNo = dataNode->rightSibPageNo;
-            dataNode->rightSibPageNo = pageId;
-
-            // TODO: Recursively Add midIdx key to the parent nodes using stack 'path'
-
+            prevKey = keyArr[i] = dataNode->keyArray[j];
+            ridArr[i] = dataNode->ridArray[j];
+            j++;
         }
+        // Special case where the key is the last key in the sorted key list
+        if (i == j) {
+            keyArr[i] = intKey;
+            ridArr[i] = rid;
+        }
+
+        // Update keys of dataNode (left split) to the first half of keys
+        for (i = 0; i < midIdx; ++i) {
+            dataNode->keyArray[i] = keyArr[i];
+            dataNode->ridArray[i] = ridArr[i];
+        }
+
+        // Update keys of newLeafNode (right split) with second half of keys
+        for (i = midIdx; i < INTARRAYLEAFSIZE+1; ++i) {
+            newLeafNode->keyArray[i-midIdx] = keyArr[i];
+            newLeafNode->ridArray[i-midIdx] = ridArr[i];
+            // Invalidate corresponding indices in dataNode as second half of
+            // that array is now empty
+            dataNode->keyArray[i] = -1;
+        }
+
+        // Update page IDs of right siblings
+        newLeafNode->rightSibPageNo = dataNode->rightSibPageNo;
+        dataNode->rightSibPageNo = pageId;
+
+        return page;
+    }
+
+
+    Page* BTreeIndex::splitNonLeafNode(NonLeafNodeInt* node, int &intKey, PageId &pageId) {
+        // Create and allocate the page (and new node)
+        Page* page;
+        PageId pageId_ = Page::INVALID_NUMBER;
+        bufMgr->allocPage(file, pageId_, page);
+        auto newNode = (NonLeafNodeInt*) &page;
+
+        // Initialize the node with default values
+        for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
+            newNode->keyArray[i] = -1;
+            newNode->pageNoArray = Page::INVALID_NUMBER;
+        }
+        newNode->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
+
+        // Get the middle index value and create sorted key and rid array
+        int midIdx = (INTARRAYNONLEAFSIZE + 1) / 2, prevKey = -1, i, j;
+        int keyArr[INTARRAYNONLEAFSIZE+1];
+        PageId pageNoArr[INTARRAYNONLEAFSIZE+2];
+
+        // The first page number won't be changed during a split as we always
+        // create the new leaf (or non-leaf) node to the right side of the
+        // existing node.
+        pageNoArr[0] = newNode->pageNoArray[0];
+
+        // Create a sorted array of all keys with new key in its position
+        for (i = 0, j = 0; i < INTARRAYNONLEAFSIZE; i++) {
+            if (prevKey <= intKey && intKey < newNode->keyArray[j]) {
+                keyArr[i] = intKey;
+                pageNoArr[i] = pageId;
+                continue;
+            }
+            prevKey = keyArr[i] = newNode->keyArray[j];
+            pageNoArr[i+1] = newNode->pageNoArray[i+1];
+            j++;
+        }
+        // Special case where the key is the last key in the sorted key list
+        if (i == j) {
+            keyArr[i] = intKey;
+            pageNoArr[i+1] = pageId;
+        }
+
+        node->pageNoArray[0] = pageNoArr[0];
+        // Update keys of dataNode (left split) to the first half of keys
+        for (i = 0; i < midIdx; ++i) {
+            node->keyArray[i] = keyArr[i];
+            node->pageNoArray[i+1] = pageNoArr[i+1];
+        }
+
+        newNode->pageNoArray[0] = pageNoArr[midIdx+1];
+        // Update keys of newNode (right split) with second half of keys
+        for (i = midIdx+1; i < INTARRAYNONLEAFSIZE+1; ++i) {
+            newNode->keyArray[i-midIdx-1] = keyArr[i];
+            newNode->pageNoArray[i-midIdx] = pageNoArr[i+1];
+            // Invalidate corresponding indices in node as second half of that
+            // array is now empty
+            node->keyArray[i-1] = -1;
+            node->pageNoArray[i] = Page::INVALID_NUMBER;
+        }
+
+        // Set the level of the newly created node
+        if (node->level == 1)
+            newNode->level = 1;
+        else
+            newNode->level = 0;
+
+        intKey = keyArr[midIdx];
+
+        return page;
     }
 
     // -----------------------------------------------------------------------------

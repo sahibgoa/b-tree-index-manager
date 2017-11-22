@@ -163,23 +163,28 @@ namespace badgerdb
 		// -----------------------------------------------------------------------------
 		// BTreeIndex::scanNext
 		// -----------------------------------------------------------------------------
-
-		// TODO: sahib
 		void BTreeIndex::scanNext(RecordId& outRid) {
 				// Check that scan has successfully started
 				if (!scanExecuting) {
 					throw ScanNotInitializedException();
 				}
 
+        // Keep track of node being evaluated
+        LeafNodeInt* currentNode = (LeafNodeInt*) currentPageData;
+
 				// Look for record id of next matching tuple
 				while (true) {
-					// Keep track of node being evaluated
-					LeafNodeInt* currentNode = (LeafNodeInt*) currentPageData;
-
-					// Check that index of entry to be evaluated is valid
+					// Validate index of entry to be evaluated
 					if (nextEntry == INTARRAYLEAFSIZE) {
-						// No more entries to be scanned on this leaf page. Move to right sibling leaf page.
-						PageID rightSibPageNo = currentNode->rightSibPageNo;
+						// Unpin page since no more entries to be scanned on this leaf page
+            try {
+              bufMgr->unPinPage(file, currentPageNum, false);
+            } catch (PageNotPinnedException e) {
+              // Do nothing.
+            }
+
+            // Move to right sibling leaf page
+						PageId rightSibPageNo = currentNode->rightSibPageNo;
 
 						// Check that the right sibling is a valid leaf page
 						if (rightSibPageNo == 0) {
@@ -187,9 +192,35 @@ namespace badgerdb
 							throw IndexScanCompletedException();
 						}
 
-
+            // Update the parameters for the index since leaf page is invalid
+            nextEntry = 0;
+            currentPageNum = rightSibPageNo;
+            bufMgr->readPage(file, currentPageNum, currentPageData);
 					}
-				}
+
+          // Check lower limit of scan with entry key. Skip entry if too small.
+          if ((lowOp == GT && currentNode->keyArray[nextEntry] <= lowValInt) ||
+              (lowOp == GTE && currentNode->keyArray[nextEntry] < lowValInt)) {
+                nextEntry++;
+                // Restart loop to process next entry
+                continue;
+          }
+
+          // Check upper limit of scan with entry key. Scan is complete if too big.
+          if ((highOp == LT && currentNode->keyArray[nextEntry] >= highValInt) ||
+              (highOp == LTE && currentNode->keyArray[nextEntry] > highValInt)) {
+                throw IndexScanCompletedException();
+          }
+
+          // Exit loop since an entry that meets the requirements has been found
+          break;
+			}
+
+      // Return the record ID of the entry
+      outRid = currentNode->ridArray[nextEntry];
+
+      // Update the index of the next entry to be scanned
+      nextEntry++;
 		}
 
 		// -----------------------------------------------------------------------------

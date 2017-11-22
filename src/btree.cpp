@@ -134,8 +134,6 @@ namespace badgerdb
 		// -----------------------------------------------------------------------------
 		// BTreeIndex::~BTreeIndex -- destructor
 		// -----------------------------------------------------------------------------
-
-		// TODO: sreejita
 		BTreeIndex::~BTreeIndex() {
 		}
 
@@ -143,7 +141,7 @@ namespace badgerdb
 		// BTreeIndex::insertEntry
 		// -----------------------------------------------------------------------------
 
-		// TODO: sahib, haylee
+		// TODO: sahib
 		void BTreeIndex::insertEntry(const void *key, const RecordId rid) {
 
 		}
@@ -227,7 +225,6 @@ namespace badgerdb
 		// BTreeIndex::endScan
 		// -----------------------------------------------------------------------------
 		//
-		// TODO: sreejita
 		void BTreeIndex::endScan() {
 
 		}

@@ -167,8 +167,8 @@ namespace badgerdb
                  currNode->keyArray[idx] != -1 &&
                  currNode->keyArray[idx] < intKey;
                  idx++);
-            // Read the next page that contains the next node 1 level deeper in
-            // the b-tree
+
+            // Read the next page that contains the next node 1 level deeper in the b-tree
             bufMgr->readPage(file, currNode->pageNoArray[idx], currPage);
             path.push(currNode->pageNoArray[idx]);
 
@@ -221,8 +221,14 @@ namespace badgerdb
             // Keep splitting parents until a parent has empty space available
             while (currNode->keyArray[INTARRAYNONLEAFSIZE-1] != -1) {
                 newPage = splitNonLeafNode(currNode, intKey, newPage->page_number());
+
                 // Unpin the page before popping it from the stack
-                bufMgr->unPinPage(file, currPage->page_number(), true);
+                try {
+                  bufMgr->unPinPage(file, currPage->page_number(), true);
+                } catch (PageNotPinnedException e) {
+                  // Do nothing.
+                }
+
                 path.pop();
                 if (!path.empty()) {
                     bufMgr->readPage(file, path.top(), currPage);
@@ -236,8 +242,10 @@ namespace badgerdb
             if (path.empty()) {
                 Page* rootPage;
                 PageId pageId;
+
                 // Allocate a new page for the root node
                 bufMgr->allocPage(file, pageId, rootPage);
+
                 // Create the new root node
                 auto root = (NonLeafNodeInt*) &rootPage;
                 root->level = 0;
@@ -246,15 +254,26 @@ namespace badgerdb
                     root->pageNoArray[i] = Page::INVALID_NUMBER;
                 }
                 root->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
+
                 // Copy the middle key and the page numbers of child nodes
                 root->keyArray[0] = intKey;
                 root->pageNoArray[0] = currPage->page_number();
                 root->pageNoArray[1] = newPage->page_number();
+
                 // Update the root page no of the b-tree
                 rootPageNum = pageId;
+
                 // Unpin the new root page and the newly split child node
-                bufMgr->unPinPage(file, newPage->page_number(), true);
-                bufMgr->unPinPage(file, pageId, true);
+                try {
+                  bufMgr->unPinPage(file, newPage->page_number(), true);
+                } catch (PageNotPinnedException e) {
+                  // Do nothing.
+                }
+                try {
+                  bufMgr->unPinPage(file, pageId, true);
+                } catch (PageNotPinnedException e) {
+                  // Do nothing.
+                }
             }
         }
     }
@@ -306,8 +325,7 @@ namespace badgerdb
         for (i = midIdx; i < INTARRAYLEAFSIZE+1; ++i) {
             newLeafNode->keyArray[i-midIdx] = keyArr[i];
             newLeafNode->ridArray[i-midIdx] = ridArr[i];
-            // Invalidate corresponding indices in dataNode as second half of
-            // that array is now empty
+            // Invalidate corresponding indices in dataNode as second half of that array is now empty
             dataNode->keyArray[i] = -1;
         }
 

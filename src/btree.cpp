@@ -166,7 +166,30 @@ namespace badgerdb
 
 		// TODO: sahib
 		void BTreeIndex::scanNext(RecordId& outRid) {
+				// Check that scan has successfully started
+				if (!scanExecuting) {
+					throw ScanNotInitializedException();
+				}
 
+				// Look for record id of next matching tuple
+				while (true) {
+					// Keep track of node being evaluated
+					LeafNodeInt* currentNode = (LeafNodeInt*) currentPageData;
+
+					// Check that index of entry to be evaluated is valid
+					if (nextEntry == INTARRAYLEAFSIZE) {
+						// No more entries to be scanned on this leaf page. Move to right sibling leaf page.
+						PageID rightSibPageNo = currentNode->rightSibPageNo;
+
+						// Check that the right sibling is a valid leaf page
+						if (rightSibPageNo == 0) {
+							// No more entries to be scanned.
+							throw IndexScanCompletedException();
+						}
+
+
+					}
+				}
 		}
 
 		// -----------------------------------------------------------------------------

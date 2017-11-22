@@ -420,11 +420,93 @@ namespace badgerdb
     // BTreeIndex::startScan
     // -----------------------------------------------------------------------------
 
-    // TODO: sreejita
+    
+    void BTreeIndex::getFirstRecordID(PageId pageNum) {
+    	
+		currentPageNum = pageNum;
+    	bufMgr->readPage(file, currentPageNum, currentPageData);
+    	struct NonLeafNodeInt *nonLeafNode = (NonLeafNodeInt *) currentPageData;
+    	
+    	int i = 0;
+        while(lowOp == GT && i < INTARRAYNONLEAFSIZE-1 && lowValInt >= nonLeafNode->keyArray[i]){
+              i++;
+        }
+        while(lowOp == GTE && i < INTARRAYNONLEAFSIZE-1 && lowValInt > nonLeafNode->keyArray[i]){
+              i++;
+        }
+        
+        if(nonLeafNode->level ==  1) //  A level above leaf node
+        {
+			bufMgr->unPinPage(file, currentPageNum, false);
+			
+			// Search for the key in leaf node 
+			PageId leaf = nonLeafNode->pageNoArray[i];
+			Page* leafPage;
+	        bufMgr->readPage(file, leaf, leafPage);
+	        struct LeafNodeInt* leafNode = (LeafNodeInt *) leafPage;
+            int j = 0;
+            while(j < INTARRAYLEAFSIZE){
+                if(lowOp == GT && leafNode->keyArray[j] > lowValInt){
+                    // Start recordId found
+                    currentPageNum = leaf;
+                    currentPageData = leafPage;
+                    nextEntry = j;
+                    return;
+                }
+                else if(lowOp == GTE && leafNode->keyArray[i] >= lowValInt){
+                // Start recordId found
+                    currentPageNum = leaf;
+                    currentPageData = leafPage;
+                    nextEntry = j;
+                    return;
+                }
+                j++;
+            }  
+            // No node was found 
+		    currentPageNum = leaf;
+            throw NoSuchKeyFoundException();
+		
+        }
+        else{
+                
+		// No record found here, unpin page and move on to the next page
+			bufMgr->unPinPage(file, currentPageNum, false);
+        	getFirstRecordID(nonLeafNode->pageNoArray[i]);
+        }
+    	
+	}
+    
+    
     void BTreeIndex::startScan(const void* lowValParm,
                                const Operator lowOpParm,
                                const void* highValParm,
                                const Operator highOpParm) {
+		
+		//Verifying expected op values
+		if( (lowOpParm != GT && lowOpParm != GTE) || (highOpParm != LT && highOpParm != LTE) )
+			throw BadOpcodesException();
+			
+		if(attributeType == INTEGER){
+			lowValInt = *(int *)lowValParm;
+			highValInt = *(int *)highValParm;
+	
+			/// Verify bounds
+			if(lowValInt > highValInt)
+				throw BadScanrangeException();
+			
+			if(scanExecuting == true)
+                endScan();
+			/// Set up variables for scan
+			scanExecuting = true;
+			lowOp = lowOpParm;
+			highOp = highOpParm;
+			
+			// Scan the tree from root to find the first Record ID
+            getFirstRecordID(rootPageNum);
+			
+		
+	    }
+	
 
     }
 

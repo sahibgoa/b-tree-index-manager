@@ -155,10 +155,11 @@ namespace badgerdb
         LeafNodeInt* dataNode;
         int idx, intKey = *((int*) key);
 
-        // Traverse the b-tree to find the data node for insertion
+        // Stack to keep track of all parent nodes in the path to the dataNode
         std::stack<PageId> path;
         path.push(rootPageNum);
 
+        // Traverse the b-tree to find the data node for insertion
         while (true) {
             // Traverse the current level of the tree to get the next page index
             for (idx = 0;
@@ -178,7 +179,6 @@ namespace badgerdb
                 break;
             } else {
                 currNode = (NonLeafNodeInt*) &currPage;
-
             }
         }
 
@@ -193,6 +193,7 @@ namespace badgerdb
         if (dataNode->keyArray[INTARRAYLEAFSIZE-1] == -1) {
             int newKey = intKey;
             RecordId newRid = rid;
+
             // Insert the intKey at position idx and shift everything else right
             for (; dataNode->keyArray[idx] != -1; idx++) {
                 int oldKey = dataNode->keyArray[idx];
@@ -202,25 +203,64 @@ namespace badgerdb
                 newKey = oldKey;
                 newRid = oldRid;
             }
+            dataNode->keyArray[idx] = newKey;
+            dataNode->ridArray[idx] = newRid;
+
         } else {
 
-            currPage = splitLeafNode(dataNode, intKey, rid);
+            // To store new page created by a split
+            Page* newPage = {};
 
-            auto newLeafNode = (LeafNodeInt*) &currPage;
-            int midKey = newLeafNode->keyArray[0];
+            // Split the leaf node and copy the middle key upwards in the b-tree
+            newPage = splitLeafNode(dataNode, intKey, rid);
 
-            do {
-                // TODO: Recursively Add midIdx key to the parent nodes using stack 'path'
-                bufMgr->readPage(file, path.top(), currPage);
-                currNode = (NonLeafNodeInt*) &currPage;
-                splitNonLeafNode(currNode, midKey, currPage->page_number());
+            // Read the parent non-leaf node
+            bufMgr->readPage(file, path.top(), currPage);
+            currNode = (NonLeafNodeInt*) &currPage;
+
+            // Keep splitting parents until a parent has empty space available
+            while (currNode->keyArray[INTARRAYNONLEAFSIZE-1] != -1) {
+                newPage = splitNonLeafNode(currNode, intKey, newPage->page_number());
+                // Unpin the page before popping it from the stack
+                bufMgr->unPinPage(file, currPage->page_number(), true);
                 path.pop();
-            } while (currNode->keyArray[INTARRAYNONLEAFSIZE-1] != -1 && !path.empty());
+                if (!path.empty()) {
+                    bufMgr->readPage(file, path.top(), currPage);
+                    currNode = (NonLeafNodeInt*) &currPage;
+                } else {
+                    break;
+                }
+            }
+
+            // No empty non-leaf node found, so create a new root
+            if (path.empty()) {
+                Page* rootPage;
+                PageId pageId;
+                // Allocate a new page for the root node
+                bufMgr->allocPage(file, pageId, rootPage);
+                // Create the new root node
+                auto root = (NonLeafNodeInt*) &rootPage;
+                root->level = 0;
+                for (int i = 1; i < INTARRAYNONLEAFSIZE; i++) {
+                    root->keyArray[i] = -1;
+                    root->pageNoArray[i] = Page::INVALID_NUMBER;
+                }
+                root->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
+                // Copy the middle key and the page numbers of child nodes
+                root->keyArray[0] = intKey;
+                root->pageNoArray[0] = currPage->page_number();
+                root->pageNoArray[1] = newPage->page_number();
+                // Update the root page no of the b-tree
+                rootPageNum = pageId;
+                // Unpin the new root page and the newly split child node
+                bufMgr->unPinPage(file, newPage->page_number(), true);
+                bufMgr->unPinPage(file, pageId, true);
+            }
         }
     }
 
 
-    Page* BTreeIndex::splitLeafNode(LeafNodeInt *dataNode, int intKey, RecordId rid) {
+    Page* BTreeIndex::splitLeafNode(LeafNodeInt *dataNode, int& intKey, const RecordId rid) {
         // Create and allocate the page (and leaf node)
         Page* page;
         PageId pageId = Page::INVALID_NUMBER;
@@ -243,6 +283,7 @@ namespace badgerdb
             if (prevKey <= intKey && intKey < dataNode->keyArray[j]) {
                 keyArr[i] = intKey;
                 ridArr[i] = rid;
+                prevKey = dataNode->keyArray[j];
                 continue;
             }
             prevKey = keyArr[i] = dataNode->keyArray[j];
@@ -278,7 +319,7 @@ namespace badgerdb
     }
 
 
-    Page* BTreeIndex::splitNonLeafNode(NonLeafNodeInt* node, int &intKey, PageId &pageId) {
+    Page* BTreeIndex::splitNonLeafNode(NonLeafNodeInt* node, int &intKey, const PageId pageId) {
         // Create and allocate the page (and new node)
         Page* page;
         PageId pageId_ = Page::INVALID_NUMBER;
@@ -288,7 +329,7 @@ namespace badgerdb
         // Initialize the node with default values
         for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
             newNode->keyArray[i] = -1;
-            newNode->pageNoArray = Page::INVALID_NUMBER;
+            newNode->pageNoArray[i] = Page::INVALID_NUMBER;
         }
         newNode->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
 
@@ -307,6 +348,7 @@ namespace badgerdb
             if (prevKey <= intKey && intKey < newNode->keyArray[j]) {
                 keyArr[i] = intKey;
                 pageNoArr[i] = pageId;
+                prevKey = newNode->keyArray[j];
                 continue;
             }
             prevKey = keyArr[i] = newNode->keyArray[j];

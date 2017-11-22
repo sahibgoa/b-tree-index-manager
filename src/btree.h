@@ -312,13 +312,13 @@ class BTreeIndex {
 	 * @return A pointer to the page containing the new node.
    */
   Page* splitNonLeafNode(NonLeafNodeInt* node, int &intKey, const PageId pageId);
-  
+
   /**
    * Scans the tree to search for first record id
 	 *
 	 * @param pageNum			PageId of the next non-leaf node to be scanned.
    */
-  void BTreeIndex::getFirstRecordID(PageId pageNum);
+  void getFirstRecordID(PageId pageNum);
 
 
  public:

@@ -294,12 +294,16 @@ class BTreeIndex {
   /**
    * Splits the node and returns pointer to a page containing the new node
    */
-    Page* splitLeafNode(LeafNodeInt *, int&, RecordId);
+    PageId splitLeafNode(LeafNodeInt*, int&, RecordId);
 
   /**
     * Splits the node and returns pointer to a page containing the new node
     */
-    Page* splitNonLeafNode(NonLeafNodeInt *, int&, PageId);
+    PageId splitNonLeafNode(NonLeafNodeInt*, int&, PageId);
+
+    bool insertKeyInLeafNode(LeafNodeInt *, int, RecordId);
+
+    bool insertKeyInNonLeafNode(NonLeafNodeInt*, int, PageId);
 
 	
  public:

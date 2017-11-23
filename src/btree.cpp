@@ -24,6 +24,7 @@
 
 namespace badgerdb
 {
+
     // -----------------------------------------------------------------------------
     // BTreeIndex::BTreeIndex -- Constructor
     // -----------------------------------------------------------------------------
@@ -131,13 +132,28 @@ namespace badgerdb
         }
     }
 
+
     // -----------------------------------------------------------------------------
     // BTreeIndex::~BTreeIndex -- destructor
     // -----------------------------------------------------------------------------
-
-    // TODO: sreejita
     BTreeIndex::~BTreeIndex() {
+			// Clean up state variables
+			scanExecuting = false;
+
+			// Unpin any pinned pages
+			try {
+				bufMgr->unPinPage(file, currentPageNum, false);
+			} catch (PageNotPinnedException& e) {
+				// Do nothing.
+			}
+
+			// Flush index file
+			bufMgr->flushFile(file);
+
+			// Delete the index file (calls destructor of File)
+			delete file;
     }
+
 
     // -----------------------------------------------------------------------------
     // BTreeIndex::insertEntry
@@ -182,7 +198,7 @@ namespace badgerdb
 
         // Checks if data node has space for the key to be inserted without
         // creating node splits
-        if (!insertKeyInLeafNode(dataNode, intKey, rid)){
+        if (!insertKeyInLeafNode(dataNode, intKey, rid)) {
 
             // Split the leaf node and copy the middle key upwards in the b-tree
             PageId newPageId = splitLeafNode(dataNode, intKey, rid);
@@ -359,6 +375,7 @@ namespace badgerdb
         return page->page_number();
     }
 
+
     bool BTreeIndex::insertKeyInLeafNode(LeafNodeInt *node, int key, RecordId rid) {
         // Checks if the node contains any empty space for insertion
         if (node->keyArray[INTARRAYLEAFSIZE-1] != -1)
@@ -388,6 +405,7 @@ namespace badgerdb
 
         return true;
     }
+
 
     bool BTreeIndex::insertKeyInNonLeafNode(NonLeafNodeInt* node, int key, PageId pageId) {
         // Checks if the node contains any empty space for insertion
@@ -419,21 +437,90 @@ namespace badgerdb
         return true;
     }
 
+
     // -----------------------------------------------------------------------------
     // BTreeIndex::startScan
     // -----------------------------------------------------------------------------
+    void BTreeIndex::getFirstRecordID(PageId pageNum) {
+    	
+		currentPageNum = pageNum;
+    	bufMgr->readPage(file, currentPageNum, currentPageData);
+    	auto nonLeafNode = (NonLeafNodeInt*) currentPageData;
+    	
+    	int i = 0;
+        while (lowOp == GT && i < INTARRAYNONLEAFSIZE-1 && lowValInt >= nonLeafNode->keyArray[i])
+              i++;
+        while (lowOp == GTE && i < INTARRAYNONLEAFSIZE-1 && lowValInt > nonLeafNode->keyArray[i])
+              i++;
 
-    // TODO: sreejita
+        // A level above leaf node
+        if (nonLeafNode->level ==  1) {
+			bufMgr->unPinPage(file, currentPageNum, false);
+			
+			// Search for the key in leaf node 
+			PageId leaf = nonLeafNode->pageNoArray[i];
+			Page* leafPage;
+	        bufMgr->readPage(file, leaf, leafPage);
+	        auto leafNode = (LeafNodeInt*) leafPage;
+            int j = 0;
+            while (j < INTARRAYLEAFSIZE) {
+                if (lowOp == GT && leafNode->keyArray[j] > lowValInt) {
+                    // Start recordId found
+                    currentPageNum = leaf;
+                    currentPageData = leafPage;
+                    nextEntry = j;
+                    return;
+                }
+                else if (lowOp == GTE && leafNode->keyArray[i] >= lowValInt) {
+                    // Start recordId found
+                    currentPageNum = leaf;
+                    currentPageData = leafPage;
+                    nextEntry = j;
+                    return;
+                }
+                j++;
+            }  
+            // No node was found 
+		    currentPageNum = leaf;
+            throw NoSuchKeyFoundException();
+        } else {
+		    // No record found here, unpin page and move on to the next page
+			bufMgr->unPinPage(file, currentPageNum, false);
+        	getFirstRecordID(nonLeafNode->pageNoArray[i]);
+        }
+    	
+	}
+    
+    
     void BTreeIndex::startScan(const void* lowValParm,
                                const Operator lowOpParm,
                                const void* highValParm,
                                const Operator highOpParm) {
+		// Verifying expected op values
+		if ((lowOpParm != GT && lowOpParm != GTE) || (highOpParm != LT && highOpParm != LTE))
+			throw BadOpcodesException();
+			
+		if (attributeType == INTEGER) {
+			lowValInt = *(int *)lowValParm;
+			highValInt = *(int *)highValParm;
+	
+			// Verify bounds
+			if (lowValInt > highValInt)
+				throw BadScanrangeException();
+			
+			if (scanExecuting)
+                endScan();
 
+			// Set up variables for scan
+			scanExecuting = true;
+			lowOp = lowOpParm;
+			highOp = highOpParm;
+			
+			// Scan the tree from root to find the first Record ID
+            getFirstRecordID(rootPageNum);
+	    }
     }
 
-    // -----------------------------------------------------------------------------
-    // BTreeIndex::scanNext
-    // -----------------------------------------------------------------------------
 
     // -----------------------------------------------------------------------------
     // BTreeIndex::scanNext
@@ -498,13 +585,25 @@ namespace badgerdb
         nextEntry++;
     }
 
+
     // -----------------------------------------------------------------------------
     // BTreeIndex::endScan
     // -----------------------------------------------------------------------------
     //
-    // TODO: sreejita
     void BTreeIndex::endScan() {
+        // Make sure that a scan is successfully executing
+        if (!scanExecuting) {
+            throw ScanNotInitializedException();
+        }
+        // Terminate the current scan
+        scanExecuting = false;
 
+        // Unpin the pages that are currently pinned
+        try {
+            bufMgr->unPinPage(file, currentPageNum, false);
+        } catch (PageNotPinnedException& e) {
+            // Do nothing.
+        }
     }
 
 }

@@ -229,16 +229,16 @@ namespace badgerdb
             // Split the leaf node and copy the middle key upwards in the b-tree
             PageId newPageId = splitLeafNode(dataNode, intKey, rid);
             PageId currPageId = path.top();
-
+			std::cout << "Test 4: " << std::endl;
             // Read the parent non-leaf node
             bufMgr->readPage(file, currPageId, currPage);
             currNode = (NonLeafNodeInt*) &currPage;
 
             // Keep splitting parents until a parent has empty space available
             while (!insertKeyInNonLeafNode(currNode, intKey, currPageId)) {
-
+				std::cout << "Test 6: " << currPageId<<std::endl;
                 newPageId = splitNonLeafNode(currNode, intKey, newPageId);
-
+				std::cout << "Test 7: " << std::endl;
                 // Unpin the page before popping it from the stack
                 try {
                     bufMgr->unPinPage(file, currPageId, true);
@@ -256,7 +256,7 @@ namespace badgerdb
                     break;
                 }
             }
-
+			std::cout << "Test 5: " << std::endl;
             // No empty non-leaf node found, so create a new root
             if (path.empty()) {
                 Page* rootPage;
@@ -274,7 +274,7 @@ namespace badgerdb
                     root->pageNoArray[i] = Page::INVALID_NUMBER;
                 }
                 root->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
-
+				std::cout << "Test 2: " << std::endl;
                 // Copy the middle key and the page numbers of child nodes
                 root->keyArray[0] = intKey;
                 root->pageNoArray[0] = currPageId;
@@ -282,7 +282,7 @@ namespace badgerdb
 
                 // Update the root page no of the b-tree
                 rootPageNum = pageId;
-
+				std::cout << "Test 1: " << std::endl;
                 // Unpin the new root page and the newly split child node
                 try {
                     bufMgr->unPinPage(file, newPageId, true);
@@ -353,7 +353,7 @@ namespace badgerdb
         dataNode->rightSibPageNo = pageId;
 
         intKey = newLeafNode->keyArray[0];
-
+		std::cout << "Test 3: " << std::endl;
         // Unpin the newly split child node
         try {
             bufMgr->unPinPage(file, pageId, true);
@@ -371,7 +371,7 @@ namespace badgerdb
         PageId pageId_;
         bufMgr->allocPage(file, pageId_, page);
         auto newNode = (NonLeafNodeInt*) page;
-
+		std::cout << "In split non leaf node: " << std::endl;
         // Initialize the node with default values
         for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
             newNode->keyArray[i] = -1;
@@ -388,7 +388,7 @@ namespace badgerdb
         // create the new leaf (or non-leaf) node to the right side of the
         // existing node.
         pageNoArr[0] = newNode->pageNoArray[0];
-
+		std::cout << "Test 8: " << std::endl;
         // Create a sorted array of all keys with new key in its position
         for (i = 0, j = 0; i < INTARRAYNONLEAFSIZE; i++) {
             if (prevKey <= intKey && intKey < newNode->keyArray[j]) {
@@ -424,18 +424,20 @@ namespace badgerdb
             node->keyArray[i-1] = -1;
             node->pageNoArray[i] = Page::INVALID_NUMBER;
         }
-
+		std::cout << "Test 9: " << std::endl;
         newNode->level = node->level;
 
         intKey = keyArr[midIdx];
-
+		std::cout << "Test 10: " << std::endl;
         // Unpin the newly split child node
         try {
+        	std::cout << "Test 12: " << std::endl;
             bufMgr->unPinPage(file, pageId_, true);
+            std::cout << "Test 13: " << std::endl;
         } catch (PageNotPinnedException& e) {
             // Do nothing.
         }
-
+		std::cout << "Test 11: " << std::endl;
         return pageId_;
     }
 
@@ -512,10 +514,10 @@ namespace badgerdb
     	auto nonLeafNode = (NonLeafNodeInt*) currentPageData;
     	
     	int i = 0;
-        while (lowOp == GT && i < INTARRAYNONLEAFSIZE-1 && lowValInt >= nonLeafNode->keyArray[i])
+        while (i < INTARRAYNONLEAFSIZE && lowValInt >= nonLeafNode->keyArray[i])
               i++;
-        while (lowOp == GTE && i < INTARRAYNONLEAFSIZE-1 && lowValInt > nonLeafNode->keyArray[i])
-              i++;
+       // while (lowOp == GTE && i < INTARRAYNONLEAFSIZE-1 && lowValInt >= nonLeafNode->keyArray[i])
+         //     i++;
 
         // A level above leaf node
         if (nonLeafNode->level ==  1) {

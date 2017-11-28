@@ -25,6 +25,7 @@
 #include "exceptions/end_of_file_exception.h"
 #include "exceptions/file_exists_exception.h"
 #include "exceptions/page_not_pinned_exception.h"
+#include "exceptions/hash_not_found_exception.h"
 
 
 //#define DEBUG
@@ -181,11 +182,6 @@ namespace badgerdb
         // Stack to keep track of all parent nodes in the path to the dataNode
         std::stack<PageId> path;
         path.push(rootPageNum);
-        try {
-          bufMgr->unPinPage(file, rootPageNum, true);
-        } catch(PageNotPinnedException& e) {
-          // Do nothing.
-        }
 
         // Traverse the b-tree to find the data node for insertion
         while (true) {
@@ -198,7 +194,7 @@ namespace badgerdb
                  idx++);
 
             // The node is a newly created b-tree root node
-            if (idx == 0) {
+            if (idx == 0 && currNode->pageNoArray[0] == Page::INVALID_NUMBER) {
 
                 // Allocate a page for the new data node
                 Page *pageRight, *pageLeft;
@@ -222,26 +218,18 @@ namespace badgerdb
                 }
 
                 try {
-                  bufMgr->unPinPage(file, pageIdLeft, true);
+                    bufMgr->unPinPage(file, pageIdLeft, true);
                 } catch(PageNotPinnedException& e) {
-                  // Do nothing.
+                    // Do nothing.
                 }
-                try {
-                  bufMgr->unPinPage(file, pageIdRight, true);
-                } catch(PageNotPinnedException& e) {
-                  // Do nothing.
-                }
+
+                path.push(pageIdRight);
                 break;
             }
 
             // Read the next page that contains the next node 1 level deeper in the b-tree
             bufMgr->readPage(file, currNode->pageNoArray[idx], currPage);
             path.push(currNode->pageNoArray[idx]);
-            try {
-              bufMgr->unPinPage(file, currNode->pageNoArray[idx], true);
-            } catch(PageNotPinnedException& e) {
-              // Do nothing.
-            }
 
             // If the next level is the leaf level, set dataNode and break.
             // Otherwise, Set the current node and continue traversal
@@ -258,11 +246,25 @@ namespace badgerdb
 
             // Split the leaf node and copy the middle key upwards in the b-tree
             PageId newPageId = splitLeafNode(dataNode, intKey, rid);
+
+            try {
+                bufMgr->unPinPage(file, path.top(), true);
+            } catch(PageNotPinnedException& e) {
+                // Do nothing.
+            }
             path.pop();
+
             PageId currPageId = path.top();
             std::cout << "Test 4: " << std::endl;
+
             // Read the parent non-leaf node
             bufMgr->readPage(file, currPageId, currPage);
+            try {
+                bufMgr->unPinPage(file, currPageId, true);
+            } catch(PageNotPinnedException& e) {
+                // Do nothing.
+            }
+
             currNode = (NonLeafNodeInt*) currPage;
 
             // Keep splitting parents until a parent has empty space available
@@ -270,19 +272,24 @@ namespace badgerdb
                 std::cout << "Test 6: " << currPageId << std::endl;
                 newPageId = splitNonLeafNode(currNode, intKey, newPageId);
                 std::cout << "Test 7: " << std::endl;
+
                 // Unpin the page before popping it from the stack
                 try {
                     bufMgr->unPinPage(file, currPageId, true);
                 } catch (PageNotPinnedException& e) {
                     // Do nothing.
                 }
-
                 path.pop();
 
                 if (!path.empty()) {
                     currPageId = path.top();
                     bufMgr->readPage(file, currPageId, currPage);
                     currNode = (NonLeafNodeInt*) currPage;
+//                    try {
+//                        bufMgr->unPinPage(file, currPageId, true);
+//                    } catch (PageNotPinnedException& e) {
+//                        // Do nothing.
+//                    }
                 } else {
                     break;
                 }
@@ -338,7 +345,9 @@ namespace badgerdb
             while (!path.empty()) {
                 try {
                     bufMgr->unPinPage(file, path.top(), true);
-                } catch(PageNotPinnedException& e) {
+                } catch (PageNotPinnedException& e) {
+                    // Do nothing.
+                } catch (HashNotFoundException &e) {
                     // Do nothing.
                 }
                 path.pop();
@@ -671,8 +680,8 @@ namespace badgerdb
             }
 
             if (currentNode->ridArray[nextEntry].page_number == Page::INVALID_NUMBER) {
-              nextEntry = INTARRAYLEAFSIZE;
-              continue;
+                nextEntry = INTARRAYLEAFSIZE;
+                continue;
             }
 
             // Check lower limit of scan with entry key. Skip entry if too small.

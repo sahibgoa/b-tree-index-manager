@@ -314,13 +314,6 @@ at this level are just above the leaf nodes. Otherwise set to 0.
         PageId splitNonLeafNode(NonLeafNodeInt* node, int& intKey, PageId pageId);
 
         /**
-         * Scans the tree to search for first record id
-         *
-         * @param pageNum	PageId of the next non-leaf node to be scanned.
-         */
-        void getFirstRecordID(PageId pageNum);
-
-        /**
          * Insert a key and record Id pair into a leaf node
          * @param node The node to insert the key into
          * @param key  The key to be inserted
@@ -337,6 +330,12 @@ at this level are just above the leaf nodes. Otherwise set to 0.
          * @return True if the entry was inserted, false otherwise
          */
         bool insertKeyInNonLeafNode(NonLeafNodeInt* node, int key, PageId pageId);
+
+        /**
+         * Scans the tree to search for first non-leaf node to be scanned
+         * @param pageNum	PageId of the next non-leaf node to be scanned
+         */
+        void getFirstRecordID(PageId pageNum);
 
     public:
 

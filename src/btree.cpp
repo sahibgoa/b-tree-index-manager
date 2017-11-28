@@ -181,6 +181,11 @@ namespace badgerdb
         // Stack to keep track of all parent nodes in the path to the dataNode
         std::stack<PageId> path;
         path.push(rootPageNum);
+        try {
+          bufMgr->unPinPage(file, rootPageNum, true);
+        } catch(PageNotPinnedException& e) {
+          // Do nothing.
+        }
 
         // Traverse the b-tree to find the data node for insertion
         while (true) {
@@ -216,14 +221,27 @@ namespace badgerdb
                     clearLeafNodeAtIdx(leftDataNode, i);
                 }
 
-                bufMgr->unPinPage(file, pageIdLeft, true);
+                try {
+                  bufMgr->unPinPage(file, pageIdLeft, true);
+                } catch(PageNotPinnedException& e) {
+                  // Do nothing.
+                }
+                try {
+                  bufMgr->unPinPage(file, pageIdRight, true);
+                } catch(PageNotPinnedException& e) {
+                  // Do nothing.
+                }
                 break;
             }
 
             // Read the next page that contains the next node 1 level deeper in the b-tree
             bufMgr->readPage(file, currNode->pageNoArray[idx], currPage);
             path.push(currNode->pageNoArray[idx]);
-           // bufMgr->unPinPage(file, currNode->pageNoArray[idx], false);
+            try {
+              bufMgr->unPinPage(file, currNode->pageNoArray[idx], true);
+            } catch(PageNotPinnedException& e) {
+              // Do nothing.
+            }
 
             // If the next level is the leaf level, set dataNode and break.
             // Otherwise, Set the current node and continue traversal
@@ -235,8 +253,7 @@ namespace badgerdb
             }
         }
 
-        // Checks if data node has space for the key to be inserted without
-        // creating node splits
+        // Checks if data node has space for the key to be inserted without creating node splits
         if (!insertKeyInLeafNode(dataNode, intKey, rid)) {
 
             // Split the leaf node and copy the middle key upwards in the b-tree
@@ -387,6 +404,7 @@ namespace badgerdb
         bufMgr->allocPage(file, pageId_, page);
         auto newNode = (NonLeafNodeInt*) page;
         std::cout << "In split non leaf node: " << std::endl;
+
         // Initialize the node with default values
         for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
             clearNonLeafNodeAtIdx(newNode, i);
@@ -610,7 +628,7 @@ namespace badgerdb
             } catch (PageNotPinnedException& e) {
                 // Do nothing.
             }
-            getFirstRecordID(nonLeafNode->pageNoArray[i]);
+            getFirstParent(nonLeafNode->pageNoArray[i]);
         }
     }
 
@@ -676,6 +694,13 @@ namespace badgerdb
 
         // Return the record ID of the entry
         outRid = currentNode->ridArray[nextEntry];
+
+        // Unpin page since no more entries to be scanned on this leaf page
+        try {
+            bufMgr->unPinPage(file, currentPageNum, false);
+        } catch (PageNotPinnedException& e) {
+            // Do nothing.
+        }
 
         // Update the index of the next entry to be scanned
         nextEntry++;

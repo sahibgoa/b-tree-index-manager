@@ -223,7 +223,7 @@ namespace badgerdb
             // Read the next page that contains the next node 1 level deeper in the b-tree
             bufMgr->readPage(file, currNode->pageNoArray[idx], currPage);
             path.push(currNode->pageNoArray[idx]);
-//            bufMgr->unPinPage(file, currNode->pageNoArray[idx], false);
+           // bufMgr->unPinPage(file, currNode->pageNoArray[idx], false);
 
             // If the next level is the leaf level, set dataNode and break.
             // Otherwise, Set the current node and continue traversal
@@ -551,7 +551,7 @@ namespace badgerdb
                                const Operator lowOpParm,
                                const void* highValParm,
                                const Operator highOpParm) {
-        // Verifying expected op values
+        // Verify expected op values
         if ((lowOpParm != GT && lowOpParm != GTE) || (highOpParm != LT && highOpParm != LTE)) {
             throw BadOpcodesException();
         }
@@ -572,15 +572,15 @@ namespace badgerdb
         lowOp = lowOpParm;
         highOp = highOpParm;
 
-        // Scan the tree from root to find the first Record ID
-        getFirstRecordID(rootPageNum);
+        // Scan the tree from root to find the parent of the first leaf node to be scanned
+        getFirstParent(rootPageNum);
     }
 
 
     // -----------------------------------------------------------------------------
-    // BTreeIndex::getFirstRecordID
+    // BTreeIndex::getFirstParent
     // -----------------------------------------------------------------------------
-    void BTreeIndex::getFirstRecordID(PageId pageNum) {
+    void BTreeIndex::getFirstParent(PageId pageNum) {
         currentPageNum = pageNum;
         bufMgr->readPage(file, currentPageNum, currentPageData);
         auto nonLeafNode = (NonLeafNodeInt*) currentPageData;

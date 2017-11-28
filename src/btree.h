@@ -359,7 +359,7 @@ at this level are just above the leaf nodes. Otherwise set to 0.
          * Scans the tree to search for first non-leaf node to be scanned
          * @param pageNum	PageId of the next non-leaf node to be scanned
          */
-        void getFirstRecordID(PageId pageNum);
+        void getFirstParent(PageId pageNum);
 
     public:
 

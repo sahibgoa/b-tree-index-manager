@@ -67,12 +67,18 @@ BufMgr * bufMgr = new BufMgr(100);
 void createRelationForward();
 void createRelationBackward();
 void createRelationRandom();
+void createBigRelationForward();
+void createBigRelationBackward();
+void createBigRelationRandom();
 void intTests();
 int intScan(BTreeIndex *index, int lowVal, Operator lowOp, int highVal, Operator highOp);
 void indexTests();
 void test1();
 void test2();
 void test3();
+void test4();
+void test5();
+void test6();
 void errorTests();
 void deleteRelation();
 
@@ -137,11 +143,15 @@ int main(int argc, char **argv)
 
 	File::remove(relationName);
 
-	test1();
+	test1();	
 	test2();
 	test3();
+	test4(); 
+	test5();
+	test6();
 	//errorTests();
 
+	printf("PASSED ALL TESTS\n");
   return 1;
 }
 
@@ -176,6 +186,41 @@ void test3()
 	createRelationRandom();
 	indexTests();
 	deleteRelation();
+}
+void test4(){
+	// Create a relation with tuples valued 0 to 100000 and perform index tests 
+	// on attributes of all three types (int, double, string)
+	std::cout << "---------------------" << std::endl;
+	std::cout << "createBigRelationForward" << std::endl;
+	createBigRelationForward();
+	std::cout << "createBigRelationForward end of function" << std::endl;
+	indexTests();
+	deleteRelation();
+	printf("passed createBigRelationForward()\n");
+}
+
+void test5()
+{
+	// Create a relation with tuples valued 0 to 100000 in reverse order and perform index tests 
+	// on attributes of all three types (int, double, string)
+	std::cout << "----------------------" << std::endl;
+	std::cout << "createBigRelationBackward" << std::endl;
+	createBigRelationBackward();
+	indexTests();
+	deleteRelation();
+	printf("passed createBigRelationBackward()\n");
+}
+
+void test6()
+{
+	// Create a relation with tuples valued 0 to 100000 in random order and perform index tests 
+	// on attributes of all three types (int, double, string)
+	std::cout << "--------------------" << std::endl;
+	std::cout << "createBigRelationRandom" << std::endl;
+	createRelationRandom();
+	indexTests();
+	deleteRelation();
+	printf("passed createBigRelationRandom()\n");
 }
 
 // -----------------------------------------------------------------------------
@@ -341,6 +386,164 @@ void createRelationRandom()
 }
 
 // -----------------------------------------------------------------------------
+// createBigRelationForward
+// -----------------------------------------------------------------------------
+void createBigRelationForward()
+{
+	std::vector<RecordId> ridVec;
+  // destroy any old copies of relation file
+	try
+	{
+		File::remove(relationName);
+	}
+	catch(FileNotFoundException e)
+	{
+	}
+  file1 = new PageFile(relationName, true);
+  // initialize all of record1.s to keep purify happy
+  memset(record1.s, ' ', sizeof(record1.s));
+	PageId new_page_number;
+  Page new_page = file1->allocatePage(new_page_number);
+  // Insert 100000 tuples into the relation.
+  for(int i = 0; i < 100000; i++ )
+	{
+    sprintf(record1.s, "%05d string record", i);
+    record1.i = i;
+    record1.d = (double)i;
+    std::string new_data(reinterpret_cast<char*>(&record1), sizeof(record1));
+		while(1)
+		{
+			try
+			{
+    		new_page.insertRecord(new_data);
+				break;
+			}
+			catch(InsufficientSpaceException e)
+			{
+				file1->writePage(new_page_number, new_page);
+  			new_page = file1->allocatePage(new_page_number);
+			}
+		}
+  }
+	file1->writePage(new_page_number, new_page);
+}
+
+
+// -----------------------------------------------------------------------------
+// createBigRelationBackward
+// -----------------------------------------------------------------------------
+
+void createBigRelationBackward()
+{
+  // destroy any old copies of relation file
+	try
+	{
+		File::remove(relationName);
+	}
+	catch(FileNotFoundException e)
+	{
+	}
+  file1 = new PageFile(relationName, true);
+
+  // initialize all of record1.s to keep purify happy
+  memset(record1.s, ' ', sizeof(record1.s));
+	PageId new_page_number;
+  Page new_page = file1->allocatePage(new_page_number);
+
+  // Insert 100000 tuples into the relation.
+  for(int i = 100000 - 1; i >= 0; i-- )
+	{
+    sprintf(record1.s, "%05d string record", i);
+    record1.i = i;
+    record1.d = i;
+
+    std::string new_data(reinterpret_cast<char*>(&record1), sizeof(RECORD));
+
+		while(1)
+		{
+			try
+			{
+    		new_page.insertRecord(new_data);
+				break;
+			}
+			catch(InsufficientSpaceException e)
+			{
+				file1->writePage(new_page_number, new_page);
+  			new_page = file1->allocatePage(new_page_number);
+			}
+		}
+  }
+
+	file1->writePage(new_page_number, new_page);
+}
+
+// -----------------------------------------------------------------------------
+// createBigRelationRandom
+// -----------------------------------------------------------------------------
+
+void createBigRelationRandom()
+{ 
+   int relationSize = 100000;
+  // destroy any old copies of relation file
+	try
+	{
+		File::remove(relationName);
+	}
+	catch(FileNotFoundException e)
+	{
+	}
+  file1 = new PageFile(relationName, true);
+
+  // initialize all of record1.s to keep purify happy
+  memset(record1.s, ' ', sizeof(record1.s));
+	PageId new_page_number;
+  Page new_page = file1->allocatePage(new_page_number);
+
+  // insert records in random order
+
+  std::vector<int> intvec(relationSize);
+  for( int i = 0; i < relationSize; i++ )
+  {
+    intvec[i] = i;
+  }
+
+  long pos;
+  int val;
+	int i = 0;
+  while( i < relationSize )
+  {
+    pos = random() % (relationSize-i);
+    val = intvec[pos];
+    sprintf(record1.s, "%05d string record", val);
+    record1.i = val;
+    record1.d = val;
+
+    std::string new_data(reinterpret_cast<char*>(&record1), sizeof(RECORD));
+
+		while(1)
+		{
+			try
+			{
+    		new_page.insertRecord(new_data);
+				break;
+			}
+			catch(InsufficientSpaceException e)
+			{
+      	file1->writePage(new_page_number, new_page);
+  			new_page = file1->allocatePage(new_page_number);
+			}
+		}
+
+		int temp = intvec[relationSize-1-i];
+		intvec[relationSize-1-i] = intvec[pos];
+		intvec[pos] = temp;
+		i++;
+  }
+  
+	file1->writePage(new_page_number, new_page);
+}
+
+// -----------------------------------------------------------------------------
 // indexTests
 // -----------------------------------------------------------------------------
 
@@ -349,6 +552,7 @@ void indexTests()
   if(testNum == 1)
   {
     intTests();
+    	std::cout << "-------------------- intTests over" << std::endl;
 		try
 		{
 			File::remove(intIndexName);
@@ -367,7 +571,7 @@ void intTests()
 {
   std::cout << "Create a B+ Tree index on the integer field" << std::endl;
   BTreeIndex index(relationName, intIndexName, bufMgr, offsetof(tuple,i), INTEGER);
-
+		std::cout << "--------------------" << std::endl;
 	// run some tests
 	checkPassFail(intScan(&index,25,GT,40,LT), 14)
 	checkPassFail(intScan(&index,20,GTE,35,LTE), 16)
@@ -376,6 +580,7 @@ void intTests()
 	checkPassFail(intScan(&index,0,GT,1,LT), 0)
 	checkPassFail(intScan(&index,300,GT,400,LT), 99)
 	checkPassFail(intScan(&index,3000,GTE,4000,LT), 1000)
+
 }
 
 int intScan(BTreeIndex * index, int lowVal, Operator lowOp, int highVal, Operator highOp)
@@ -393,7 +598,9 @@ int intScan(BTreeIndex * index, int lowVal, Operator lowOp, int highVal, Operato
 	
 	try
 	{
+			std::cout << "-------------------- int Scan" << std::endl;
   	index->startScan(&lowVal, lowOp, &highVal, highOp);
+  		std::cout << "-------------------- started scan" << std::endl;
 	}
 	catch(NoSuchKeyFoundException e)
 	{

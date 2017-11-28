@@ -215,10 +215,10 @@ namespace badgerdb
             // If the next level is the leaf level, set dataNode and break.
             // Otherwise, Set the current node and continue traversal
             if (currNode->level == 1) {
-                dataNode = (LeafNodeInt*) &currPage;
+                dataNode = (LeafNodeInt*) currPage;
                 break;
             } else {
-                currNode = (NonLeafNodeInt*) &currPage;
+                currNode = (NonLeafNodeInt*) currPage;
             }
         }
 
@@ -228,14 +228,15 @@ namespace badgerdb
 
             // Split the leaf node and copy the middle key upwards in the b-tree
             PageId newPageId = splitLeafNode(dataNode, intKey, rid);
+            path.pop();
             PageId currPageId = path.top();
 			std::cout << "Test 4: " << std::endl;
             // Read the parent non-leaf node
             bufMgr->readPage(file, currPageId, currPage);
-            currNode = (NonLeafNodeInt*) &currPage;
+            currNode = (NonLeafNodeInt*) currPage;
 
             // Keep splitting parents until a parent has empty space available
-            while (!insertKeyInNonLeafNode(currNode, intKey, currPageId)) {
+            while (!insertKeyInNonLeafNode(currNode, intKey, newPageId)) {
 				std::cout << "Test 6: " << currPageId<<std::endl;
                 newPageId = splitNonLeafNode(currNode, intKey, newPageId);
 				std::cout << "Test 7: " << std::endl;
@@ -249,9 +250,9 @@ namespace badgerdb
                 path.pop();
 
                 if (!path.empty()) {
-                    bufMgr->readPage(file, currPageId, currPage);
-                    currNode = (NonLeafNodeInt*) &currPage;
                     currPageId = path.top();
+                    bufMgr->readPage(file, currPageId, currPage);
+                    currNode = (NonLeafNodeInt*) currPage;
                 } else {
                     break;
                 }
@@ -267,7 +268,7 @@ namespace badgerdb
                 std::cout << "Allocated new root number: " << pageId << std::endl;
 
                 // Create the new root node
-                auto root = (NonLeafNodeInt*) &rootPage;
+                auto root = (NonLeafNodeInt*) rootPage;
                 root->level = 0;
                 for (int i = 1; i < INTARRAYNONLEAFSIZE; i++) {
                     root->keyArray[i] = -1;
@@ -491,14 +492,14 @@ namespace badgerdb
         // Insert the key at position idx and shift everything else right
         for (; node->keyArray[idx] != -1; idx++) {
             int oldKey = node->keyArray[idx];
-            PageId oldPageId = node->pageNoArray[idx];
+            PageId oldPageId = node->pageNoArray[idx+1];
             node->keyArray[idx] = newKey;
-            node->pageNoArray[idx] = newPageId;
+            node->pageNoArray[idx+1] = newPageId;
             newKey = oldKey;
             newPageId = oldPageId;
         }
         node->keyArray[idx] = newKey;
-        node->pageNoArray[idx] = newPageId;
+        node->pageNoArray[idx+1] = newPageId;
 
         return true;
     }
@@ -514,7 +515,7 @@ namespace badgerdb
     	auto nonLeafNode = (NonLeafNodeInt*) currentPageData;
     	
     	int i = 0;
-        while (i < INTARRAYNONLEAFSIZE && lowValInt >= nonLeafNode->keyArray[i])
+        while (i < INTARRAYNONLEAFSIZE && lowValInt >= nonLeafNode->keyArray[i] && nonLeafNode->keyArray[i] != -1)
               i++;
        // while (lowOp == GTE && i < INTARRAYNONLEAFSIZE-1 && lowValInt >= nonLeafNode->keyArray[i])
          //     i++;
@@ -624,6 +625,7 @@ namespace badgerdb
                 nextEntry = 0;
                 currentPageNum = rightSibPageNo;
                 bufMgr->readPage(file, currentPageNum, currentPageData);
+                currentNode = (LeafNodeInt*) currentPageData;
             }
 
             // Check lower limit of scan with entry key. Skip entry if too small.

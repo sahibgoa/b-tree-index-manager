@@ -296,8 +296,8 @@ at this level are just above the leaf nodes. Otherwise set to 0.
          * Splits the leaf node and returns pointer to a page containing the new node.
          *
          * @param dataNode		Node where the new key is to be inserted.
-         * @param intKey			Integer representation of the key being inserted.
-         * @param rid				Record ID of a record whose entry is getting inserted into the index.
+         * @param intKey		Integer representation of the key being inserted.
+         * @param rid			Record ID of a record whose entry is getting inserted into the index.
          * @return PageId of the page containing the new node.
          */
         PageId splitLeafNode(LeafNodeInt* dataNode, int& intKey, RecordId rid);
@@ -307,8 +307,8 @@ at this level are just above the leaf nodes. Otherwise set to 0.
          * Splits the non-leaf node and returns pointer to a page containing the new node.
          *
          * @param node			The non-leaf node to be split.
-         * @param intKey			Integer representation of the key being inserted.
-         * @param pageId			PageId of the page where the new key was inserted.
+         * @param intKey		Integer representation of the key being inserted.
+         * @param pageId		PageId of the page where the new key was inserted.
          * @return Page Id of the page containing the new node.
          */
         PageId splitNonLeafNode(NonLeafNodeInt* node, int& intKey, PageId pageId);

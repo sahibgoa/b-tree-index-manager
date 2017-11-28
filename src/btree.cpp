@@ -1,4 +1,11 @@
 /**
+ * Project team:
+ *  Haylee Jane Monteiro - 9071694690
+ *  Sreejita Dutta       - 9075301680
+ *  Sahib Singh Pandori  - 9071742556
+ *
+ * This file contains the implementation of the methods for b+tree index interface as defined in btree.h
+ *
  * @author See Contributors.txt for code contributors and overview of BadgerDB.
  *
  * @section LICENSE

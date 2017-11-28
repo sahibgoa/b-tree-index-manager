@@ -1,4 +1,14 @@
 /**
+ * Project team:
+ *  Haylee Jane Monteiro - 9071694690
+ *  Sreejita Dutta       - 9075301680
+ *  Sahib Singh Pandori  - 9071742556
+ *
+ * This is the header file for an interface for the implementation of a b+tree index.
+ * The B+tree only supports single-attribute indexing, with the attribute type being an integer.
+ * And all records in a file have the same length, and no two entries in the index have the same key.
+ * The data for the index will be stored in a file on disk.
+ *
  * @author See Contributors.txt for code contributors and overview of BadgerDB.
  *
  * @section LICENSE

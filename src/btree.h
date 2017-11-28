@@ -332,6 +332,20 @@ at this level are just above the leaf nodes. Otherwise set to 0.
         bool insertKeyInNonLeafNode(NonLeafNodeInt* node, int key, PageId pageId);
 
         /**
+         * Clears the Leaf node entry at index i
+         * @param node The node that contains the entry to be cleared
+         * @param i The index of the entry
+         */
+        void clearLeafNodeAtIdx(LeafNodeInt* node, int idx);
+
+        /**
+         * Clears the Non-Leaf node entry at index i
+         * @param node The node that contains the entry to be cleared
+         * @param i The index of the entry
+         */
+        void clearNonLeafNodeAtIdx(NonLeafNodeInt* node, int idx);
+
+        /**
          * Scans the tree to search for first non-leaf node to be scanned
          * @param pageNum	PageId of the next non-leaf node to be scanned
          */

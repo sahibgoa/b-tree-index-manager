@@ -75,8 +75,7 @@ namespace badgerdb
             auto root = (NonLeafNodeInt*) rootPage;
             root->level = 1;
             for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
-                root->keyArray[i] = -1;
-                root->pageNoArray[i] = Page::INVALID_NUMBER;
+                clearNonLeafNodeAtIdx(root, i);
             }
             root->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
 
@@ -139,21 +138,21 @@ namespace badgerdb
     // BTreeIndex::~BTreeIndex -- destructor
     // -----------------------------------------------------------------------------
     BTreeIndex::~BTreeIndex() {
-			// Clean up state variables
-			scanExecuting = false;
+        // Clean up state variables
+        scanExecuting = false;
 
-			// Unpin any pinned pages
-			try {
-				bufMgr->unPinPage(file, currentPageNum, false);
-			} catch (PageNotPinnedException& e) {
-				// Do nothing.
-			}
+        // Unpin any pinned pages
+        try {
+            bufMgr->unPinPage(file, currentPageNum, false);
+        } catch (PageNotPinnedException& e) {
+            // Do nothing.
+        }
 
-			// Flush index file
-			bufMgr->flushFile(file);
+        // Flush index file
+        bufMgr->flushFile(file);
 
-			// Delete the index file (calls destructor of File)
-			delete file;
+        // Delete the index file (calls destructor of File)
+        delete file;
     }
 
 
@@ -181,7 +180,7 @@ namespace badgerdb
             // Traverse the current level of the tree to get the next page index
             for (idx = 0;
                  idx < INTARRAYNONLEAFSIZE &&
-                 currNode->keyArray[idx] != -1 &&
+                 currNode->pageNoArray[idx+1] != Page::INVALID_NUMBER &&
                  currNode->keyArray[idx] < intKey;
                  idx++);
 
@@ -200,8 +199,8 @@ namespace badgerdb
                 dataNode = (LeafNodeInt*) pageRight;
                 auto leftDataNode = (LeafNodeInt*) pageLeft;
                 for (int i = 0; i < INTARRAYLEAFSIZE; ++i) {
-                    dataNode->keyArray[i] = -1;
-                    leftDataNode->keyArray[i] = -1;
+                    clearLeafNodeAtIdx(dataNode, i);
+                    clearLeafNodeAtIdx(leftDataNode, i);
                 }
                 bufMgr->unPinPage(file, pageIdLeft, true);
                 break;
@@ -230,16 +229,16 @@ namespace badgerdb
             PageId newPageId = splitLeafNode(dataNode, intKey, rid);
             path.pop();
             PageId currPageId = path.top();
-			std::cout << "Test 4: " << std::endl;
+            std::cout << "Test 4: " << std::endl;
             // Read the parent non-leaf node
             bufMgr->readPage(file, currPageId, currPage);
             currNode = (NonLeafNodeInt*) currPage;
 
             // Keep splitting parents until a parent has empty space available
             while (!insertKeyInNonLeafNode(currNode, intKey, newPageId)) {
-				std::cout << "Test 6: " << currPageId<<std::endl;
+                std::cout << "Test 6: " << currPageId << std::endl;
                 newPageId = splitNonLeafNode(currNode, intKey, newPageId);
-				std::cout << "Test 7: " << std::endl;
+                std::cout << "Test 7: " << std::endl;
                 // Unpin the page before popping it from the stack
                 try {
                     bufMgr->unPinPage(file, currPageId, true);
@@ -257,7 +256,7 @@ namespace badgerdb
                     break;
                 }
             }
-			std::cout << "Test 5: " << std::endl;
+            std::cout << "Test 5: " << std::endl;
             // No empty non-leaf node found, so create a new root
             if (path.empty()) {
                 Page* rootPage;
@@ -271,11 +270,10 @@ namespace badgerdb
                 auto root = (NonLeafNodeInt*) rootPage;
                 root->level = 0;
                 for (int i = 1; i < INTARRAYNONLEAFSIZE; i++) {
-                    root->keyArray[i] = -1;
-                    root->pageNoArray[i] = Page::INVALID_NUMBER;
+                    clearNonLeafNodeAtIdx(root, i);
                 }
                 root->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
-				std::cout << "Test 2: " << std::endl;
+                std::cout << "Test 2: " << std::endl;
                 // Copy the middle key and the page numbers of child nodes
                 root->keyArray[0] = intKey;
                 root->pageNoArray[0] = currPageId;
@@ -283,7 +281,7 @@ namespace badgerdb
 
                 // Update the root page no of the b-tree
                 rootPageNum = pageId;
-				std::cout << "Test 1: " << std::endl;
+                std::cout << "Test 1: " << std::endl;
                 // Unpin the new root page and the newly split child node
                 try {
                     bufMgr->unPinPage(file, newPageId, true);
@@ -327,11 +325,8 @@ namespace badgerdb
         auto newLeafNode = (LeafNodeInt*) page;
 
         // Initialize the node with default values
-        for (int i = 0; i < INTARRAYLEAFSIZE; i++) {
-            newLeafNode->keyArray[i] = -1;
-            newLeafNode->ridArray[i].page_number = Page::INVALID_NUMBER;
-            newLeafNode->ridArray[i].slot_number = Page::INVALID_SLOT;
-        }
+        for (int i = 0; i < INTARRAYLEAFSIZE; i++)
+            clearLeafNodeAtIdx(newLeafNode, i);
 
         // Get the middle index value and create sorted key and rid array
         int midIdx = (INTARRAYLEAFSIZE + 1) / 2;
@@ -340,21 +335,20 @@ namespace badgerdb
         for (int i = midIdx; i < INTARRAYLEAFSIZE; ++i) {
             newLeafNode->keyArray[i-midIdx] = dataNode->keyArray[i];
             newLeafNode->ridArray[i-midIdx] = dataNode->ridArray[i];
-            dataNode->keyArray[i] = -1;
+            clearLeafNodeAtIdx(dataNode, i);
         }
 
-        if (intKey < newLeafNode->keyArray[0]) {
+        if (intKey < newLeafNode->keyArray[0])
             insertKeyInLeafNode(dataNode, intKey, rid);
-        } else {
+        else
             insertKeyInLeafNode(newLeafNode, intKey, rid);
-        }
 
         // Update page IDs of right siblings
         newLeafNode->rightSibPageNo = dataNode->rightSibPageNo;
         dataNode->rightSibPageNo = pageId;
 
         intKey = newLeafNode->keyArray[0];
-		std::cout << "Test 3: " << std::endl;
+        std::cout << "Test 3: " << std::endl;
         // Unpin the newly split child node
         try {
             bufMgr->unPinPage(file, pageId, true);
@@ -372,11 +366,10 @@ namespace badgerdb
         PageId pageId_;
         bufMgr->allocPage(file, pageId_, page);
         auto newNode = (NonLeafNodeInt*) page;
-		std::cout << "In split non leaf node: " << std::endl;
+        std::cout << "In split non leaf node: " << std::endl;
         // Initialize the node with default values
         for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
-            newNode->keyArray[i] = -1;
-            newNode->pageNoArray[i] = Page::INVALID_NUMBER;
+            clearNonLeafNodeAtIdx(newNode, i);
         }
         newNode->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
 
@@ -389,7 +382,7 @@ namespace badgerdb
         // create the new leaf (or non-leaf) node to the right side of the
         // existing node.
         pageNoArr[0] = newNode->pageNoArray[0];
-		std::cout << "Test 8: " << std::endl;
+        std::cout << "Test 8: " << std::endl;
         // Create a sorted array of all keys with new key in its position
         for (i = 0, j = 0; i < INTARRAYNONLEAFSIZE; i++) {
             if (prevKey <= intKey && intKey < newNode->keyArray[j]) {
@@ -417,35 +410,36 @@ namespace badgerdb
 
         newNode->pageNoArray[0] = pageNoArr[midIdx+1];
         // Update keys of newNode (right split) with second half of keys
-        for (i = midIdx+1; i < INTARRAYNONLEAFSIZE+1; ++i) {
-            newNode->keyArray[i-midIdx-1] = keyArr[i];
-            newNode->pageNoArray[i-midIdx] = pageNoArr[i+1];
+        for (i = midIdx; i < INTARRAYNONLEAFSIZE; ++i) {
+            newNode->keyArray[i-midIdx] = keyArr[i+1];
+            newNode->pageNoArray[i-midIdx+1] = pageNoArr[i+2];
             // Invalidate corresponding indices in node as second half of that
             // array is now empty
-            node->keyArray[i-1] = -1;
-            node->pageNoArray[i] = Page::INVALID_NUMBER;
+            clearNonLeafNodeAtIdx(node, i);
         }
-		std::cout << "Test 9: " << std::endl;
+        node->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
+
+        std::cout << "Test 9: " << std::endl;
         newNode->level = node->level;
 
         intKey = keyArr[midIdx];
-		std::cout << "Test 10: " << std::endl;
+        std::cout << "Test 10: " << std::endl;
         // Unpin the newly split child node
         try {
-        	std::cout << "Test 12: " << std::endl;
+            std::cout << "Test 12: " << std::endl;
             bufMgr->unPinPage(file, pageId_, true);
             std::cout << "Test 13: " << std::endl;
         } catch (PageNotPinnedException& e) {
             // Do nothing.
         }
-		std::cout << "Test 11: " << std::endl;
+        std::cout << "Test 11: " << std::endl;
         return pageId_;
     }
 
 
     bool BTreeIndex::insertKeyInLeafNode(LeafNodeInt *node, int key, RecordId rid) {
         // Checks if the node contains any empty space for insertion
-        if (node->keyArray[INTARRAYLEAFSIZE-1] != -1)
+        if (node->ridArray[INTARRAYLEAFSIZE-1].page_number != Page::INVALID_NUMBER)
             return false;
 
         int idx, newKey = key;
@@ -454,12 +448,12 @@ namespace badgerdb
         // Find the index to insert the key-record pair
         for (idx = 0;
              idx < INTARRAYLEAFSIZE &&
-             node->keyArray[idx] != -1 &&
+             node->ridArray[idx].page_number != Page::INVALID_NUMBER &&
              node->keyArray[idx] < key;
              idx++);
 
         // Insert the key at position idx and shift everything else right
-        for (; node->keyArray[idx] != -1; idx++) {
+        for (; node->ridArray[idx].page_number != Page::INVALID_NUMBER; idx++) {
             int oldKey = node->keyArray[idx];
             RecordId oldRid = node->ridArray[idx];
             node->keyArray[idx] = newKey;
@@ -476,7 +470,7 @@ namespace badgerdb
 
     bool BTreeIndex::insertKeyInNonLeafNode(NonLeafNodeInt* node, int key, PageId pageId) {
         // Checks if the node contains any empty space for insertion
-        if (node->keyArray[INTARRAYNONLEAFSIZE-1] != -1)
+        if (node->pageNoArray[INTARRAYNONLEAFSIZE] != Page::INVALID_NUMBER)
             return false;
 
         int idx, newKey = key;
@@ -485,12 +479,12 @@ namespace badgerdb
         // Find the index to insert the key-pageId pair
         for (idx = 0;
              idx < INTARRAYNONLEAFSIZE &&
-             node->keyArray[idx] != -1 &&
+             node->pageNoArray[idx+1] != Page::INVALID_NUMBER &&
              node->keyArray[idx] < key;
              idx++);
 
         // Insert the key at position idx and shift everything else right
-        for (; node->keyArray[idx] != -1; idx++) {
+        for (; node->pageNoArray[idx+1] != Page::INVALID_NUMBER; idx++) {
             int oldKey = node->keyArray[idx];
             PageId oldPageId = node->pageNoArray[idx+1];
             node->keyArray[idx] = newKey;
@@ -505,6 +499,19 @@ namespace badgerdb
     }
 
 
+    void BTreeIndex::clearLeafNodeAtIdx(LeafNodeInt* node, int idx) {
+        node->keyArray[idx] = -1;
+        node->ridArray[idx].page_number = Page::INVALID_NUMBER;
+        node->ridArray[idx].slot_number = Page::INVALID_SLOT;
+    }
+
+
+    void BTreeIndex::clearNonLeafNodeAtIdx(NonLeafNodeInt* node, int idx) {
+        node->keyArray[idx] = -1;
+        node->pageNoArray[idx] = Page::INVALID_NUMBER;
+    }
+
+
     // -----------------------------------------------------------------------------
     // BTreeIndex::startScan
     // -----------------------------------------------------------------------------
@@ -512,83 +519,83 @@ namespace badgerdb
                                const Operator lowOpParm,
                                const void* highValParm,
                                const Operator highOpParm) {
-  		// Verifying expected op values
-  		if ((lowOpParm != GT && lowOpParm != GTE) || (highOpParm != LT && highOpParm != LTE)) {
-  			throw BadOpcodesException();
-      }
+        // Verifying expected op values
+        if ((lowOpParm != GT && lowOpParm != GTE) || (highOpParm != LT && highOpParm != LTE)) {
+            throw BadOpcodesException();
+        }
 
-  		lowValInt = *(int *)lowValParm;
-  		highValInt = *(int *)highValParm;
+        lowValInt = *(int *)lowValParm;
+        highValInt = *(int *)highValParm;
 
-			// Verify bounds
-			if (lowValInt > highValInt)
-				throw BadScanrangeException();
+        // Verify bounds
+        if (lowValInt > highValInt)
+            throw BadScanrangeException();
 
-			if (scanExecuting) {
-        endScan();
-      }
+        if (scanExecuting) {
+            endScan();
+        }
 
-			// Set up variables for scan
-			scanExecuting = true;
-			lowOp = lowOpParm;
-			highOp = highOpParm;
+        // Set up variables for scan
+        scanExecuting = true;
+        lowOp = lowOpParm;
+        highOp = highOpParm;
 
-			// Scan the tree from root to find the first Record ID
-      getFirstRecordID(rootPageNum);
+        // Scan the tree from root to find the first Record ID
+        getFirstRecordID(rootPageNum);
     }
 
 
     void BTreeIndex::getFirstRecordID(PageId pageNum) {
-		  currentPageNum = pageNum;
-    	bufMgr->readPage(file, currentPageNum, currentPageData);
-    	auto nonLeafNode = (NonLeafNodeInt*) currentPageData;
+        currentPageNum = pageNum;
+        bufMgr->readPage(file, currentPageNum, currentPageData);
+        auto nonLeafNode = (NonLeafNodeInt*) currentPageData;
 
-    	int i = 0;
-      while (i < INTARRAYNONLEAFSIZE && lowValInt >= nonLeafNode->keyArray[i] && nonLeafNode->keyArray[i] != -1) {
-        i++;
-      }
+        int i = 0;
+        while (i < INTARRAYNONLEAFSIZE
+               && lowValInt >= nonLeafNode->keyArray[i]
+               && nonLeafNode->pageNoArray[i+1] != Page::INVALID_NUMBER)
+            i++;
 
-      // A level above leaf node
-      if (nonLeafNode->level == 1) {
-        try {
-  			  bufMgr->unPinPage(file, currentPageNum, false);
-        } catch (PageNotPinnedException& e) {
-          // Do nothing.
-        }
+        // A level above leaf node
+        if (nonLeafNode->level == 1) {
+            try {
+                bufMgr->unPinPage(file, currentPageNum, false);
+            } catch (PageNotPinnedException& e) {
+                // Do nothing.
+            }
 
-  			// Search for the key in leaf node
-  			currentPageNum = nonLeafNode->pageNoArray[i];
-	      bufMgr->readPage(file, currentPageNum, currentPageData);
-	      auto leafNode = (LeafNodeInt*) currentPageData;
-        nextEntry = 0;
-        while (nextEntry < INTARRAYLEAFSIZE) {
-          if ((lowOp == GT && leafNode->keyArray[nextEntry] > lowValInt) ||
-              (lowOp == GTE && leafNode->keyArray[nextEntry] >= lowValInt)) {
-            // Start recordId found
-            return;
-          }
-          nextEntry++;
+            // Search for the key in leaf node
+            currentPageNum = nonLeafNode->pageNoArray[i];
+            bufMgr->readPage(file, currentPageNum, currentPageData);
+            auto leafNode = (LeafNodeInt*) currentPageData;
+            nextEntry = 0;
+            while (nextEntry < INTARRAYLEAFSIZE) {
+                if ((lowOp == GT && leafNode->keyArray[nextEntry] > lowValInt) ||
+                    (lowOp == GTE && leafNode->keyArray[nextEntry] >= lowValInt))
+                    // Start recordId found
+                    return;
+
+                nextEntry++;
+            }
+            // No entry was found
+        } else {
+            // No record found here, unpin page and move on to the next page
+            try {
+                bufMgr->unPinPage(file, currentPageNum, false);
+            } catch (PageNotPinnedException& e) {
+                // Do nothing.
+            }
+            getFirstRecordID(nonLeafNode->pageNoArray[i]);
         }
-        // No entry was found
-      } else {
-		    // No record found here, unpin page and move on to the next page
-        try {
-			    bufMgr->unPinPage(file, currentPageNum, false);
-        } catch (PageNotPinnedException& e) {
-          // Do nothing.
-        }
-      	getFirstRecordID(nonLeafNode->pageNoArray[i]);
-      }
-	  }
+    }
 
     // -----------------------------------------------------------------------------
     // BTreeIndex::scanNext
     // -----------------------------------------------------------------------------
     void BTreeIndex::scanNext(RecordId& outRid) {
         // Check that scan has successfully started
-        if (!scanExecuting) {
+        if (!scanExecuting)
             throw ScanNotInitializedException();
-        }
 
         // Keep track of node being evaluated
         auto currentNode = (LeafNodeInt*) currentPageData;
@@ -608,10 +615,9 @@ namespace badgerdb
                 PageId rightSibPageNo = currentNode->rightSibPageNo;
 
                 // Check that the right sibling is a valid leaf page
-                if (rightSibPageNo == 0) {
+                if (rightSibPageNo == 0)
                     // No more entries to be scanned.
                     throw IndexScanCompletedException();
-                }
 
                 // Update the parameters for the index since leaf page is invalid
                 nextEntry = 0;
@@ -629,10 +635,9 @@ namespace badgerdb
             }
 
             // Check upper limit of scan with entry key. Scan is complete if too big.
-            if ((highOp == LT && currentNode->keyArray[nextEntry] >= highValInt) ||
-                (highOp == LTE && currentNode->keyArray[nextEntry] > highValInt)) {
+            if ((highOp == LT && currentNode->keyArray[nextEntry] >= highValInt)
+                || (highOp == LTE && currentNode->keyArray[nextEntry] > highValInt))
                 throw IndexScanCompletedException();
-            }
 
             // Exit loop since an entry that meets the requirements has been found
             break;
@@ -652,9 +657,9 @@ namespace badgerdb
     //
     void BTreeIndex::endScan() {
         // Make sure that a scan is successfully executing
-        if (!scanExecuting) {
+        if (!scanExecuting)
             throw ScanNotInitializedException();
-        }
+
         // Terminate the current scan
         scanExecuting = false;
 

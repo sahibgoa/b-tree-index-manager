@@ -184,6 +184,7 @@ namespace badgerdb
 
         // Traverse the b-tree to find the data node for insertion
         while (true) {
+
             // Traverse the current level of the tree to get the next page index
             for (idx = 0;
                  idx < INTARRAYNONLEAFSIZE &&
@@ -193,22 +194,28 @@ namespace badgerdb
 
             // The node is a newly created b-tree root node
             if (idx == 0) {
+
                 // Allocate a page for the new data node
                 Page *pageRight, *pageLeft;
                 PageId pageIdLeft, pageIdRight;
                 bufMgr->allocPage(file, pageIdRight, pageRight);
                 bufMgr->allocPage(file, pageIdLeft, pageLeft);
+
                 // Point the root to the data node
                 currNode->keyArray[0] = intKey;
                 currNode->pageNoArray[0] = pageIdLeft;
                 currNode->pageNoArray[1] = pageIdRight;
+
                 // Initialize the data node
                 dataNode = (LeafNodeInt*) pageRight;
                 auto leftDataNode = (LeafNodeInt*) pageLeft;
+                leftDataNode->rightSibPageNo = pageIdRight;
+
                 for (int i = 0; i < INTARRAYLEAFSIZE; ++i) {
                     clearLeafNodeAtIdx(dataNode, i);
                     clearLeafNodeAtIdx(leftDataNode, i);
                 }
+
                 bufMgr->unPinPage(file, pageIdLeft, true);
                 break;
             }
@@ -574,17 +581,7 @@ namespace badgerdb
             // Search for the key in leaf node
             currentPageNum = nonLeafNode->pageNoArray[i];
             bufMgr->readPage(file, currentPageNum, currentPageData);
-            auto leafNode = (LeafNodeInt*) currentPageData;
             nextEntry = 0;
-            while (nextEntry < INTARRAYLEAFSIZE) {
-                if ((lowOp == GT && leafNode->keyArray[nextEntry] > lowValInt) ||
-                    (lowOp == GTE && leafNode->keyArray[nextEntry] >= lowValInt))
-                    // Start recordId found
-                    return;
-
-                nextEntry++;
-            }
-            // No entry was found
         } else {
             // No record found here, unpin page and move on to the next page
             try {
@@ -622,7 +619,7 @@ namespace badgerdb
                 PageId rightSibPageNo = currentNode->rightSibPageNo;
 
                 // Check that the right sibling is a valid leaf page
-                if (rightSibPageNo == 0)
+                if (rightSibPageNo == Page::INVALID_NUMBER)
                     // No more entries to be scanned.
                     throw IndexScanCompletedException();
 
@@ -631,6 +628,11 @@ namespace badgerdb
                 currentPageNum = rightSibPageNo;
                 bufMgr->readPage(file, currentPageNum, currentPageData);
                 currentNode = (LeafNodeInt*) currentPageData;
+            }
+
+            if (currentNode->ridArray[nextEntry].page_number == Page::INVALID_NUMBER) {
+              nextEntry = INTARRAYLEAFSIZE;
+              continue;
             }
 
             // Check lower limit of scan with entry key. Skip entry if too small.

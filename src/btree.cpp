@@ -323,6 +323,9 @@ namespace badgerdb
     }
 
 
+    // -----------------------------------------------------------------------------
+    // BTreeIndex::splitLeafNode
+    // -----------------------------------------------------------------------------
     PageId BTreeIndex::splitLeafNode(LeafNodeInt *dataNode, int& intKey, const RecordId rid) {
         // Create and allocate the page (and leaf node)
         Page* page;
@@ -367,6 +370,9 @@ namespace badgerdb
     }
 
 
+    // -----------------------------------------------------------------------------
+    // BTreeIndex::splitNonLeafNode
+    // -----------------------------------------------------------------------------
     PageId BTreeIndex::splitNonLeafNode(NonLeafNodeInt* node, int &intKey, const PageId pageId) {
         // Create and allocate the page (and new node)
         Page* page;
@@ -444,6 +450,9 @@ namespace badgerdb
     }
 
 
+    // -----------------------------------------------------------------------------
+    // BTreeIndex::insertKeyInLeafNode
+    // -----------------------------------------------------------------------------
     bool BTreeIndex::insertKeyInLeafNode(LeafNodeInt *node, int key, RecordId rid) {
         // Checks if the node contains any empty space for insertion
         if (node->ridArray[INTARRAYLEAFSIZE-1].page_number != Page::INVALID_NUMBER)
@@ -475,6 +484,9 @@ namespace badgerdb
     }
 
 
+    // -----------------------------------------------------------------------------
+    // BTreeIndex::insertKeyInNonLeafNode
+    // -----------------------------------------------------------------------------
     bool BTreeIndex::insertKeyInNonLeafNode(NonLeafNodeInt* node, int key, PageId pageId) {
         // Checks if the node contains any empty space for insertion
         if (node->pageNoArray[INTARRAYNONLEAFSIZE] != Page::INVALID_NUMBER)
@@ -506,6 +518,9 @@ namespace badgerdb
     }
 
 
+    // -----------------------------------------------------------------------------
+    // BTreeIndex::clearLeafNodeAtIdx
+    // -----------------------------------------------------------------------------
     void BTreeIndex::clearLeafNodeAtIdx(LeafNodeInt* node, int idx) {
         node->keyArray[idx] = -1;
         node->ridArray[idx].page_number = Page::INVALID_NUMBER;
@@ -513,6 +528,9 @@ namespace badgerdb
     }
 
 
+    // -----------------------------------------------------------------------------
+    // BTreeIndex::clearNonLeafNodeAtIdx
+    // -----------------------------------------------------------------------------
     void BTreeIndex::clearNonLeafNodeAtIdx(NonLeafNodeInt* node, int idx) {
         node->keyArray[idx] = -1;
         node->pageNoArray[idx] = Page::INVALID_NUMBER;
@@ -552,6 +570,9 @@ namespace badgerdb
     }
 
 
+    // -----------------------------------------------------------------------------
+    // BTreeIndex::getFirstRecordID
+    // -----------------------------------------------------------------------------
     void BTreeIndex::getFirstRecordID(PageId pageNum) {
         currentPageNum = pageNum;
         bufMgr->readPage(file, currentPageNum, currentPageData);
@@ -595,6 +616,7 @@ namespace badgerdb
             getFirstRecordID(nonLeafNode->pageNoArray[i]);
         }
     }
+
 
     // -----------------------------------------------------------------------------
     // BTreeIndex::scanNext

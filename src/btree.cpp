@@ -12,6 +12,7 @@
  * Copyright (c) 2012 Database Group, Computer Sciences Department, University of Wisconsin-Madison.
  */
 
+#include <climits>
 #include <stack>
 #include <climits>
 #include "btree.h"

@@ -12,6 +12,7 @@
  * Copyright (c) 2012 Database Group, Computer Sciences Department, University of Wisconsin-Madison.
  */
 
+#include <climits>
 #include <stack>
 #include "btree.h"
 #include "filescan.h"
@@ -414,7 +415,7 @@ namespace badgerdb
         newNode->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
 
         // Get the middle index value and create sorted key and rid array
-        int midIdx = (INTARRAYNONLEAFSIZE + 1) / 2, prevKey = -1, i, j;
+        int midIdx = (INTARRAYNONLEAFSIZE + 1) / 2, prevKey = INT_MIN, i, j;
         int keyArr[INTARRAYNONLEAFSIZE+1];
         PageId pageNoArr[INTARRAYNONLEAFSIZE+2];
 
@@ -427,12 +428,12 @@ namespace badgerdb
         for (i = 0, j = 0; i < INTARRAYNONLEAFSIZE; i++) {
             if (prevKey <= intKey && intKey < node->keyArray[j]) {
                 keyArr[i] = intKey;
-                pageNoArr[i] = pageId;
+                pageNoArr[i+1] = pageId;
                 prevKey = node->keyArray[j];
                 continue;
             }
             prevKey = keyArr[i] = node->keyArray[j];
-            pageNoArr[i+1] = node->pageNoArray[i+1];
+            pageNoArr[i+1] = node->pageNoArray[j+1];
             j++;
         }
         // Special case where the key is the last key in the sorted key list

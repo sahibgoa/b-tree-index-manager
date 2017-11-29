@@ -26,6 +26,7 @@
 #include "exceptions/file_exists_exception.h"
 #include "exceptions/page_not_pinned_exception.h"
 #include "exceptions/hash_not_found_exception.h"
+#include "exceptions/page_pinned_exception.h"
 
 
 //#define DEBUG
@@ -68,9 +69,6 @@ namespace badgerdb
             // Allocate index meta info page and btree root page
             bufMgr->allocPage(file, headerPageNum, headerPage);
             bufMgr->allocPage(file, rootPageNum, rootPage);
-
-            std::cout << "Header page number: " <<  headerPageNum << std::endl;
-            std::cout << "Root page number: " << rootPageNum << std::endl;
 
             // Set up index meta info
             metadata = (IndexMetaInfo*) headerPage;
@@ -156,9 +154,6 @@ namespace badgerdb
             // Do nothing.
         }
 
-        // Flush index file
-        bufMgr->flushFile(file);
-
         // Delete the index file (calls destructor of File)
         delete file;
     }
@@ -199,8 +194,8 @@ namespace badgerdb
                 // Allocate a page for the new data node
                 Page *pageRight, *pageLeft;
                 PageId pageIdLeft, pageIdRight;
-                bufMgr->allocPage(file, pageIdRight, pageRight);
                 bufMgr->allocPage(file, pageIdLeft, pageLeft);
+                bufMgr->allocPage(file, pageIdRight, pageRight);
 
                 // Point the root to the data node
                 currNode->keyArray[0] = intKey;
@@ -280,11 +275,6 @@ namespace badgerdb
                     currPageId = path.top();
                     bufMgr->readPage(file, currPageId, currPage);
                     currNode = (NonLeafNodeInt*) currPage;
-//                    try {
-//                        bufMgr->unPinPage(file, currPageId, true);
-//                    } catch (PageNotPinnedException& e) {
-//                        // Do nothing.
-//                    }
                 } else {
                     break;
                 }
@@ -333,16 +323,16 @@ namespace badgerdb
                 } catch (PageNotPinnedException& e) {
                     // Do nothing.
                 }
-            } else {
-                while (!path.empty()) {
-                    try {
-                        bufMgr->unPinPage(file, path.top(), true);
-                    } catch(PageNotPinnedException& e) {
-                        // Do nothing.
-                    }
-                    path.pop();
-                }
             }
+            while (!path.empty()) {
+                try {
+                    bufMgr->unPinPage(file, path.top(), true);
+                } catch(PageNotPinnedException& e) {
+                    // Do nothing.
+                }
+                path.pop();
+            }
+
         } else {
             while (!path.empty()) {
                 try {
@@ -366,7 +356,6 @@ namespace badgerdb
         Page* page;
         PageId pageId;
         bufMgr->allocPage(file, pageId, page);
-        std::cout << "Allocated new leaf page after split: " << pageId << std::endl;
         auto newLeafNode = (LeafNodeInt*) page;
 
         // Initialize the node with default values
@@ -393,7 +382,7 @@ namespace badgerdb
         dataNode->rightSibPageNo = pageId;
 
         intKey = newLeafNode->keyArray[0];
-        std::cout << "Test 3: " << std::endl;
+
         // Unpin the newly split child node
         try {
             bufMgr->unPinPage(file, pageId, true);
@@ -414,7 +403,6 @@ namespace badgerdb
         PageId pageId_;
         bufMgr->allocPage(file, pageId_, page);
         auto newNode = (NonLeafNodeInt*) page;
-        std::cout << "In split non leaf node: " << std::endl;
 
         // Initialize the node with default values
         for (int i = 0; i < INTARRAYNONLEAFSIZE; i++) {
@@ -430,18 +418,18 @@ namespace badgerdb
         // The first page number won't be changed during a split as we always
         // create the new leaf (or non-leaf) node to the right side of the
         // existing node.
-        pageNoArr[0] = newNode->pageNoArray[0];
-        std::cout << "Test 8: " << std::endl;
+        pageNoArr[0] = node->pageNoArray[0];
+
         // Create a sorted array of all keys with new key in its position
         for (i = 0, j = 0; i < INTARRAYNONLEAFSIZE; i++) {
-            if (prevKey <= intKey && intKey < newNode->keyArray[j]) {
+            if (prevKey <= intKey && intKey < node->keyArray[j]) {
                 keyArr[i] = intKey;
                 pageNoArr[i] = pageId;
-                prevKey = newNode->keyArray[j];
+                prevKey = node->keyArray[j];
                 continue;
             }
-            prevKey = keyArr[i] = newNode->keyArray[j];
-            pageNoArr[i+1] = newNode->pageNoArray[i+1];
+            prevKey = keyArr[i] = node->keyArray[j];
+            pageNoArr[i+1] = node->pageNoArray[i+1];
             j++;
         }
         // Special case where the key is the last key in the sorted key list
@@ -468,20 +456,17 @@ namespace badgerdb
         }
         node->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
 
-        std::cout << "Test 9: " << std::endl;
         newNode->level = node->level;
 
         intKey = keyArr[midIdx];
-        std::cout << "Test 10: " << std::endl;
+
         // Unpin the newly split child node
         try {
-            std::cout << "Test 12: " << std::endl;
             bufMgr->unPinPage(file, pageId_, true);
-            std::cout << "Test 13: " << std::endl;
         } catch (PageNotPinnedException& e) {
             // Do nothing.
         }
-        std::cout << "Test 11: " << std::endl;
+
         return pageId_;
     }
 

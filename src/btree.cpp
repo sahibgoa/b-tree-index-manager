@@ -13,6 +13,7 @@
  */
 
 #include <stack>
+#include <climits>
 #include "btree.h"
 #include "filescan.h"
 #include "exceptions/bad_index_info_exception.h"
@@ -414,7 +415,7 @@ namespace badgerdb
         newNode->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
 
         // Get the middle index value and create sorted key and rid array
-        int midIdx = (INTARRAYNONLEAFSIZE + 1) / 2, prevKey = -1, i, j;
+        int midIdx = (INTARRAYNONLEAFSIZE + 1) / 2, prevKey = INT_MIN, i, j;
         int keyArr[INTARRAYNONLEAFSIZE+1];
         PageId pageNoArr[INTARRAYNONLEAFSIZE+2];
 
@@ -424,15 +425,15 @@ namespace badgerdb
         pageNoArr[0] = node->pageNoArray[0];
 
         // Create a sorted array of all keys with new key in its position
-        for (i = 0, j = 0; i < INTARRAYNONLEAFSIZE; i++) {
+        for (i = 0, j = 0; j < INTARRAYNONLEAFSIZE; i++) {
             if (prevKey <= intKey && intKey < node->keyArray[j]) {
                 keyArr[i] = intKey;
-                pageNoArr[i] = pageId;
+                pageNoArr[i+1] = pageId;
                 prevKey = node->keyArray[j];
                 continue;
             }
             prevKey = keyArr[i] = node->keyArray[j];
-            pageNoArr[i+1] = node->pageNoArray[i+1];
+            pageNoArr[i+1] = node->pageNoArray[j+1];
             j++;
         }
         // Special case where the key is the last key in the sorted key list
@@ -456,6 +457,7 @@ namespace badgerdb
             // Invalidate corresponding indices in node as second half of that
             // array is now empty
             clearNonLeafNodeAtIdx(node, i);
+            clearNonLeafNodeAtIdx(newNode, i-1);
         }
         node->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
 

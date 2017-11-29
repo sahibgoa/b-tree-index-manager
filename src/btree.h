@@ -1,8 +1,8 @@
 /**
  * Project team:
+ *  Sahib Singh Pandori  - 9071742556
  *  Haylee Jane Monteiro - 9071694690
  *  Sreejita Dutta       - 9075301680
- *  Sahib Singh Pandori  - 9071742556
  *
  * This is the header file for an interface for the implementation of a b+tree index.
  * The B+tree only supports single-attribute indexing, with the attribute type being an integer.

@@ -1,8 +1,8 @@
 /**
  * Project team:
- *  Sahib Singh Pandori  - 9071742556
- *  Haylee Jane Monteiro - 9071694690
- *  Sreejita Dutta       - 9075301680
+ *  Sahib Singh Pandori  - 9071742556 | pandori@wisc.edu
+ *  Haylee Jane Monteiro - 9071694690 | monteiro@wisc.edu
+ *  Sreejita Dutta       - 9075301680 | sdutta7@wisc.edu
  *
  * This file contains the implementation of the methods for b+tree index interface as defined in btree.h
  *
@@ -154,6 +154,7 @@ namespace badgerdb
             // Do nothing.
         }
 
+        // Flush index file
         bufMgr->flushFile(file);
 
         // Delete the index file (calls destructor of File)
@@ -335,7 +336,6 @@ namespace badgerdb
                 }
                 path.pop();
             }
-
         } else {
             while (!path.empty()) {
                 try {
@@ -619,7 +619,27 @@ namespace badgerdb
             // Search for the key in leaf node
             currentPageNum = nonLeafNode->pageNoArray[i];
             bufMgr->readPage(file, currentPageNum, currentPageData);
-            nextEntry = 0;
+
+            // Use binary search to set the value of nextEntry to read the first record that is in the scan range
+            auto currentNode = (LeafNodeInt*) currentPageData;
+            int low = 0, high = INTARRAYLEAFSIZE - 1;
+            int mid;
+            while (low <= high) {
+              mid  = (low + high) / 2;
+
+              if (currentNode->ridArray[mid].page_number == Page::INVALID_NUMBER) {
+                high = mid - 1;
+              } else if ((lowOp == GT && currentNode->keyArray[mid] == lowValInt + 1) ||
+                  (lowOp == GTE && currentNode->keyArray[mid] == lowValInt)) {
+                break;
+              } else if ((lowOp == GT && currentNode->keyArray[mid] <= lowValInt) ||
+                  (lowOp == GTE && currentNode->keyArray[mid] < lowValInt)) {
+                low = mid + 1;
+              } else {
+                high = mid - 1;
+              }
+            }
+            nextEntry = mid;
         } else {
             // No record found here, unpin page and move on to the next page
             try {

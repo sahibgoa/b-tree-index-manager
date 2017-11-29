@@ -259,11 +259,6 @@ namespace badgerdb
 
             // Read the parent non-leaf node
             bufMgr->readPage(file, currPageId, currPage);
-            try {
-                bufMgr->unPinPage(file, currPageId, true);
-            } catch(PageNotPinnedException& e) {
-                // Do nothing.
-            }
 
             currNode = (NonLeafNodeInt*) currPage;
 
@@ -294,6 +289,13 @@ namespace badgerdb
                     break;
                 }
             }
+
+            try {
+                bufMgr->unPinPage(file, currPageId, true);
+            } catch(PageNotPinnedException& e) {
+                // Do nothing.
+            }
+
             std::cout << "Test 5: " << std::endl;
             // No empty non-leaf node found, so create a new root
             if (path.empty()) {
@@ -704,13 +706,6 @@ namespace badgerdb
         // Return the record ID of the entry
         outRid = currentNode->ridArray[nextEntry];
 
-        // Unpin page since no more entries to be scanned on this leaf page
-        try {
-            bufMgr->unPinPage(file, currentPageNum, false);
-        } catch (PageNotPinnedException& e) {
-            // Do nothing.
-        }
-
         // Update the index of the next entry to be scanned
         nextEntry++;
     }
@@ -732,6 +727,8 @@ namespace badgerdb
         try {
             bufMgr->unPinPage(file, currentPageNum, false);
         } catch (PageNotPinnedException& e) {
+            // Do nothing.
+        } catch (HashNotFoundException& e) {
             // Do nothing.
         }
     }

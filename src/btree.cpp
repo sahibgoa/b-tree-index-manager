@@ -154,6 +154,8 @@ namespace badgerdb
             // Do nothing.
         }
 
+        bufMgr->flushFile(file);
+
         // Delete the index file (calls destructor of File)
         delete file;
     }
@@ -250,18 +252,20 @@ namespace badgerdb
             path.pop();
 
             PageId currPageId = path.top();
-            std::cout << "Test 4: " << std::endl;
 
             // Read the parent non-leaf node
             bufMgr->readPage(file, currPageId, currPage);
-
+            try {
+                bufMgr->unPinPage(file, currPageId, true);
+            } catch (PageNotPinnedException& e) {
+                // Do nothing.
+            }
             currNode = (NonLeafNodeInt*) currPage;
 
             // Keep splitting parents until a parent has empty space available
             while (!insertKeyInNonLeafNode(currNode, intKey, newPageId)) {
-                std::cout << "Test 6: " << currPageId << std::endl;
+
                 newPageId = splitNonLeafNode(currNode, intKey, newPageId);
-                std::cout << "Test 7: " << std::endl;
 
                 // Unpin the page before popping it from the stack
                 try {
@@ -286,7 +290,6 @@ namespace badgerdb
                 // Do nothing.
             }
 
-            std::cout << "Test 5: " << std::endl;
             // No empty non-leaf node found, so create a new root
             if (path.empty()) {
                 Page* rootPage;
@@ -294,16 +297,16 @@ namespace badgerdb
 
                 // Allocate a new page for the root node
                 bufMgr->allocPage(file, pageId, rootPage);
-                std::cout << "Allocated new root number: " << pageId << std::endl;
 
                 // Create the new root node
                 auto root = (NonLeafNodeInt*) rootPage;
                 root->level = 0;
+
                 for (int i = 1; i < INTARRAYNONLEAFSIZE; i++) {
                     clearNonLeafNodeAtIdx(root, i);
                 }
                 root->pageNoArray[INTARRAYNONLEAFSIZE] = Page::INVALID_NUMBER;
-                std::cout << "Test 2: " << std::endl;
+
                 // Copy the middle key and the page numbers of child nodes
                 root->keyArray[0] = intKey;
                 root->pageNoArray[0] = currPageId;
@@ -311,7 +314,7 @@ namespace badgerdb
 
                 // Update the root page no of the b-tree
                 rootPageNum = pageId;
-                std::cout << "Test 1: " << std::endl;
+
                 // Unpin the new root page and the newly split child node
                 try {
                     bufMgr->unPinPage(file, newPageId, true);

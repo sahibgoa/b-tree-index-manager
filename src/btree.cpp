@@ -114,6 +114,9 @@ namespace badgerdb
             // Open the file
             file = new BlobFile(outIndexName, false);
 
+            // Get the meta page number fom the file
+            headerPageNum = file->getFirstPageNo();
+
             // Get index meta info for value checking
             bufMgr->readPage(file, headerPageNum, headerPage);
             metadata = (IndexMetaInfo*) headerPage;
@@ -132,6 +135,10 @@ namespace badgerdb
                 throw BadIndexInfoException("Error: Existing index metadata does not match parameters passed.");
             }
             // Metatdata matches
+
+            // Set root page for the index
+            rootPageNum = metadata->rootPageNo;
+
             // Unpin header page
             try {
                 bufMgr->unPinPage(file, headerPageNum, false);
